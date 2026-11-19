@@ -1,6 +1,8 @@
 # Outage Map
 
-A Home Assistant dashboard and sensors for provider incidents and checks from your own network.
+Monitor internet outages and cloud service status in Home Assistant. Combine official outage feeds with checks from your home network and use service status in automations.
+
+![Outage Map logo](https://raw.githubusercontent.com/yanke7/Home-Assistant/main/Outage%20Map/docs/outage-map-logo.jpg)
 
 Open [the sample dashboard](Outage%20Map/docs/card-preview.html) in a browser to try the layout and controls with fictional data.
 
@@ -20,7 +22,7 @@ The integration doesn't create a sidebar dashboard automatically. If the card is
 type: custom:outage-watch-card
 ```
 
-If it says **Custom element doesn't exist: outage-watch-card** after refreshing, add `/outage_watch/outage-watch-card.js?v=0.2.9` as a **JavaScript module** in **Settings → Dashboards → Resources** (enable **Advanced mode** in your user profile if Resources isn't visible). Reload the dashboard. If the module URL returns 404, check that the integration is loaded and restart Home Assistant once after installation.
+If it says **Custom element doesn't exist: outage-watch-card** after refreshing, add `/outage_watch/outage-watch-card.js?v=0.2.10` as a **JavaScript module** in **Settings → Dashboards → Resources** (enable **Advanced mode** in your user profile if Resources isn't visible). Reload the dashboard. If the module URL returns 404, check that the integration is loaded and restart Home Assistant once after installation.
 
 ## Install for beta testing
 

@@ -41,7 +41,7 @@ async def async_setup(hass, config):
     await hass.http.async_register_static_paths([
         StaticPathConfig("/outage_watch/outage-watch-card.js", str(WWW / "outage-watch-card.js"), False)
     ])
-    frontend.add_extra_js_url(hass, "/outage_watch/outage-watch-card.js?v=0.2.9")
+    frontend.add_extra_js_url(hass, "/outage_watch/outage-watch-card.js?v=0.2.10")
     websocket_api.async_register_command(hass, dashboard)
 
     async def manage(call):
