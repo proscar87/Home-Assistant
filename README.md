@@ -1,6 +1,6 @@
 # Outage Map
 
-Monitor internet outages and cloud service status in Home Assistant. Combine official outage feeds with checks from your home network and use service status in automations.
+Uptime monitoring and outage detection for Home Assistant. Track official provider incidents, check service reachability from your home network, and trigger alerts or automations when a service goes down.
 
 ![Outage Map logo](https://raw.githubusercontent.com/yanke7/Home-Assistant/main/Outage%20Map/docs/outage-map-logo.jpg)
 
@@ -83,6 +83,10 @@ Use the category buttons above the dashboard tiles to focus on one group of trac
 Use **+ Add service** and filter by **AI**, **Video**, **Audio**, **Smart home**, **Weather**, or **Online services**. Catalog entries only start polling when you choose to track them. See the [endpoint verification results](Outage%20Map/docs/catalog-expansion.md) for the expanded catalog and its signal types.
 
 For a specific camera, plug, bridge, or thermostat, use a Home Assistant automation based on the device entity becoming `unavailable`. Provider tiles monitor shared cloud services or public endpoints.
+
+## How does Outage Map compare with Downdetector?
+
+Downdetector shows spikes in user reports. Outage Map combines official provider incident feeds, where available, with reachability checks from your Home Assistant instance. You can use its service status entities to send notifications or trigger automations when a service has a problem.
 
 ## What the dashboard reports
 
