@@ -52,6 +52,10 @@ class Monitor:
         for service in self.services.values():
             self.apply_catalog_metadata(service)
             self.prune(service)
+            # Older observations predate the optional polling interval.
+            for sample in service["samples"]:
+                if len(sample) == 3:
+                    sample.append(self.interval)
             # The baseline survives restart. Failure streaks require fresh evidence.
             service["run_start"] = time()
 
@@ -272,7 +276,7 @@ class Monitor:
                     service["probe_retry_at"] = retry_at
                     changed = True
                     if generation == self.generation and self.failures == 0:
-                        service["samples"].append([time(), outcome, latency])
+                        service["samples"].append([time(), outcome, latency, self.interval])
                         self.prune(service)
                         if code == 429:
                             check_backoff = 4

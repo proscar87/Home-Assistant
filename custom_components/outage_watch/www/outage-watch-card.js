@@ -22,19 +22,24 @@ function graph(service, detailed = false) {
   if (!successful.length) return `<div class="no-chart">${service.signal === "Feed only" ? "Provider feed only" : "No response time history yet"}</div>`;
   const max = Math.max(50, (service.baseline || 0) * 1.2, ...successful.map((row) => row[2])) * 1.04;
   const now = Date.now() / 1000, height = detailed ? 120 : 26;
-  let path = "", gap = true;
-  for (const [time, state, ms] of rows) {
-    if (state !== "ok") { gap = true; continue; }
+  // Reachability checks can back off to four polling intervals. The monitor
+  // considers a reading fresh for five intervals, including scheduling jitter.
+  let previous = null, single = "", dots = "", path = "";
+  for (const [time, state, ms, interval = 300] of rows) {
+    if (state !== "ok") { previous = null; continue; }
+    const gap = previous === null || time - previous > 5 * interval;
     const x = Math.max(0, Math.min(320, 320 * (time - now + 86400) / 86400));
     const y = height - 2 - (height - 4) * ms / max;
     path += `${gap ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)} `;
-    gap = false;
+    if (gap) dots += single;
+    single = gap ? `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="1.4" fill="currentColor"/>` : "";
+    previous = time;
   }
   const baseline = height - 2 - (height - 4) * service.baseline / max;
   return `<svg class="chart" viewBox="0 0 320 ${height}" preserveAspectRatio="none" role="img" aria-label="Response time over 24 hours">
       ${detailed ? [0, 1, 2, 3, 4].map((i) => `<path class="gridline" d="M${i * 80} 0v${height} M0 ${i * height / 4}h320"/>`).join("") : ""}
       ${detailed && service.baseline != null ? `<path class="baseline" d="M0 ${baseline}h320"/>` : ""}
-      <path class="trace" d="${path}"/></svg>
+      <path class="trace" d="${path}"/>${dots}${single}</svg>
       ${detailed ? '<div class="axis"><span>24h ago</span><span>12h ago</span><span>Now</span></div>' : ""}`;
 }
 
