@@ -6,6 +6,8 @@ on:
       - 'tests/**'
       - 'scripts/validate_catalog.py'
       - 'hacs.json'
+      - 'README.md'
+      - 'Outage Map/**'
       - '.github/workflows/outage-map.yml'
   pull_request:
     paths:
@@ -13,6 +15,8 @@ on:
       - 'tests/**'
       - 'scripts/validate_catalog.py'
       - 'hacs.json'
+      - 'README.md'
+      - 'Outage Map/**'
       - '.github/workflows/outage-map.yml'
   workflow_dispatch:
 
