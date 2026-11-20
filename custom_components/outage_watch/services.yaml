@@ -28,3 +28,15 @@ set_alerts:
       required: true
       selector:
         boolean:
+
+enable_readouts:
+  name: Enable dashboard readouts
+  description: Set up the Home Assistant provider for Speedtest or server metrics.
+  fields:
+    provider:
+      required: true
+      selector:
+        select:
+          options:
+            - speedtestdotnet
+            - systemmonitor

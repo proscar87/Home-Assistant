@@ -1,4 +1,5 @@
 """Home Assistant entry points and admin management actions."""
+import asyncio
 import json
 from pathlib import Path
 from uuid import uuid4
@@ -14,6 +15,7 @@ from homeassistant.helpers.service import async_register_admin_service
 
 from .monitor import Monitor
 from .network import public_url
+from .readouts import SENSORS, async_enable_readouts, entity_ids
 
 DOMAIN = "outage_watch"
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
@@ -35,13 +37,23 @@ async def dashboard(hass, connection, msg):
         entity_id = registry.async_get_entity_id(domain, DOMAIN, monitor.unique(service_id, kind))
         return bool(entity_id and user.permissions.check_entity(entity_id, POLICY_READ))
 
-    connection.send_result(msg["id"], monitor.snapshot(user.is_admin, can_read))
+    snapshot = monitor.snapshot(user.is_admin, can_read)
+    snapshot["readout_entities"] = {
+        provider: {
+            key: entity_id for key, entity_id in entity_ids(hass, provider).items()
+            if user.permissions.check_entity(entity_id, POLICY_READ)
+        }
+        for provider in SENSORS
+    }
+    snapshot["speedtest_configured"] = bool(hass.config_entries.async_entries("speedtestdotnet"))
+    connection.send_result(msg["id"], snapshot)
 
 async def async_setup(hass, config):
     await hass.http.async_register_static_paths([
-        StaticPathConfig("/outage_watch/outage-watch-card.js", str(WWW / "outage-watch-card.js"), False)
+        StaticPathConfig("/outage_watch/outage-watch-card.js", str(WWW / "outage-watch-card.js"), False),
+        StaticPathConfig("/outage_watch/star-trek-badge.jpg", str(WWW / "outage-map-star-trek-badge.jpg"), True),
     ])
-    frontend.add_extra_js_url(hass, "/outage_watch/outage-watch-card.js?v=0.2.10")
+    frontend.add_extra_js_url(hass, "/outage_watch/outage-watch-card.js?v=0.2.10-readouts.1")
     websocket_api.async_register_command(hass, dashboard)
 
     async def manage(call):
@@ -84,6 +96,19 @@ async def async_setup(hass, config):
                     monitor.set_alerts(monitor.services[service_id], data["enabled"])
             monitor.save()
 
+    readout_lock = asyncio.Lock()
+
+    async def enable_readouts(call):
+        entries = hass.config_entries.async_loaded_entries(DOMAIN)
+        if not entries:
+            raise HomeAssistantError("Set up Outage Map first")
+        async with readout_lock:
+            await async_enable_readouts(hass, call.data["provider"])
+
+    async_register_admin_service(
+        hass, DOMAIN, "enable_readouts", enable_readouts,
+        vol.Schema({vol.Required("provider"): vol.In(SENSORS)}),
+    )
     service_id = vol.Required("service_id")
     schemas = {
         "add_service": {vol.Optional(key): cv.string for key in ("catalog_id", "name", "url")},

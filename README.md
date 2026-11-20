@@ -38,11 +38,7 @@ If you already use Outage Watch, the integration domain and card type are unchan
 
 ## Optional Speedtest graph and Run test button
 
-The Outage Map card includes the graph and button. The measurements come from Home Assistant's separate, built-in **Speedtest.net** integration. Outage Map does not run its own speed test.
-
-1. In **Settings → Devices & services → Add integration**, search for **Speedtest.net** and set it up. No separate HACS download is needed for Speedtest.net.
-2. Once its sensors have readings, refresh your Outage Map dashboard. The header automatically shows the available readings from `sensor.speedtest_download`, `sensor.speedtest_upload`, and `sensor.speedtest_ping`. Without those sensors the Speedtest section stays hidden.
-3. Administrators can select **Run test** to refresh the readings on demand. The 24-hour download and upload graph uses Home Assistant History and needs recorded sensor data.
+Choose **Enable Speedtest** in the dashboard header. Outage Map configures Home Assistant’s built-in Speedtest.net provider automatically or reuses it if it already exists. Enabling it runs a bandwidth test and normally schedules one every hour. Administrators can select **Run test** to start a test on demand.
 
 Open **Theme → Speedtest style** to choose **Classic**, **Signal Matrix**, **Neon Gauges**, **Flux Rails**, or **Aqua Wave**. The header and history graphs follow the dashboard theme, including Follow Appearance. Classic is the default, and the choice is saved per browser. The header trends use 24 hours of history. Gauges and rails display the latest readings.
 
@@ -54,7 +50,7 @@ If you renamed the sensors, set `speedtest_download_entity`, `speedtest_upload_e
 
 ## Theme screenshots
 
-All six screenshots use the same fictional service and Speedtest data. **Follow Appearance** is shown with an Amethyst palette and will look different with your active Home Assistant theme.
+The six screenshots below use the same fictional service and Speedtest data. **Follow Appearance** is shown with an Amethyst palette and will look different with your active Home Assistant theme.
 
 | Brushed Steel | Amber Relay |
 | --- | --- |
@@ -67,6 +63,14 @@ All six screenshots use the same fictional service and Speedtest data. **Follow 
 | Aqua Current | Follow Appearance |
 | --- | --- |
 | [![Aqua Current](Outage%20Map/docs/screenshots/aqua-current.jpg)](Outage%20Map/docs/screenshots/aqua-current.jpg) | [![Follow Appearance shown with an Amethyst palette](Outage%20Map/docs/screenshots/follow-appearance.jpg)](Outage%20Map/docs/screenshots/follow-appearance.jpg) |
+
+### Star Trek on phones and tablets
+
+The Star Trek header shows live server readings in a compact strip. On wider screens, the gauges move beside the title. These screenshots use sample data and open at full size.
+
+| Portrait | Landscape |
+| --- | --- |
+| [![Portrait dashboard with server readings beneath the title](Outage%20Map/docs/screenshots/star-trek-portrait.png)](Outage%20Map/docs/screenshots/star-trek-portrait.png) | [![Landscape dashboard with speed gauges beside the title](Outage%20Map/docs/screenshots/star-trek-landscape.png)](Outage%20Map/docs/screenshots/star-trek-landscape.png) |
 
 ## Mobile layout screenshots
 
@@ -109,7 +113,7 @@ Please report reproducible beta issues on [GitHub](https://github.com/yanke7/Hom
 
 ## Optional server info
 
-Open **Theme → Server info → Show server info**. This is off by default and is saved per browser. The panel shows Home Assistant's version and the available CPU, memory, disk, temperature, and host uptime readings from [System Monitor](https://www.home-assistant.io/integrations/systemmonitor/). Enable only the System Monitor sensors you want to display. No extra checks run when the panel is open.
+Open **Theme → Server info → Show server info**. This is off by default and is saved per browser. The panel shows Home Assistant's version and the available CPU, memory, disk, temperature, and host uptime readings from [System Monitor](https://www.home-assistant.io/integrations/systemmonitor/). If host metrics are missing, select **Enable host metrics** in Server info. Outage Map sets up Home Assistant’s built-in System Monitor provider and enables the sensors used by this panel. Existing enabled sensors and dashboard entity overrides are reused. No extra checks run when the panel is open.
 
 For renamed or alternative sensors, add a `server_info_entities` mapping to the card YAML. Supported keys are `cpu`, `memory`, `disk`, `disk_free`, `temperature`, and `uptime`. CPU, memory, and disk usage should be percentage sensors. Host uptime expects a timestamp for the host's last boot. The disk sensors display the mount point selected in System Monitor.
 

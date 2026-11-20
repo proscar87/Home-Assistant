@@ -27,6 +27,10 @@ class DashboardPermissionTests(unittest.IsolatedAsyncioTestCase):
             "homeassistant.auth.permissions.const",
         )}
         deps["homeassistant.auth.permissions.const"].POLICY_READ = "read"
+        readouts = Mock()
+        readouts.SENSORS = {"speedtestdotnet": {}}
+        readouts.entity_ids.return_value = {"download": "sensor.renamed_download"}
+        deps[package.__name__ + ".readouts"] = readouts
         ws = deps["homeassistant.components"].websocket_api
         ws.websocket_command.side_effect = lambda schema: lambda fn: fn
         ws.async_response.side_effect = lambda fn: fn
@@ -38,6 +42,7 @@ class DashboardPermissionTests(unittest.IsolatedAsyncioTestCase):
             spec.loader.exec_module(api)
 
         hass = Mock()
+        hass.config_entries.async_entries.return_value = []
         instance = monitor.Monitor(hass, SimpleNamespace(entry_id="home", options={}), [])
         instance.control = False
         instance.notify_action = "notify.phone"
@@ -57,12 +62,16 @@ class DashboardPermissionTests(unittest.IsolatedAsyncioTestCase):
         ]:
             connection = Mock()
             connection.user.is_admin = admin
-            connection.user.permissions.check_entity.side_effect = lambda entity_id, policy: entity_id in allowed and policy == "read"
+            connection.user.permissions.check_entity.side_effect = lambda entity_id, policy: (admin or entity_id in allowed) and policy == "read"
             await api.dashboard(hass, connection, {"id": 13})
             call_id, result = connection.send_result.call_args.args
             self.assertEqual(call_id, 13)
             self.assertEqual([item["id"] for item in result["services"]], expected)
             self.assertEqual(result["can_manage"], admin)
+            self.assertEqual(
+                result["readout_entities"]["speedtestdotnet"],
+                {"download": "sensor.renamed_download"} if admin else {},
+            )
             self.assertEqual("connected" in result, admin or "binary_sensor.internet" in allowed)
             self.assertEqual("notify_configured" in result, admin)
             self.assertEqual("catalog" in result, admin)
