@@ -22,7 +22,7 @@ The integration doesn't create a sidebar dashboard automatically. If the card is
 type: custom:outage-watch-card
 ```
 
-If it says **Custom element doesn't exist: outage-watch-card** after refreshing, add `/outage_watch/outage-watch-card.js?v=0.2.11` as a **JavaScript module** in **Settings → Dashboards → Resources** (enable **Advanced mode** in your user profile if Resources isn't visible). Reload the dashboard. If the module URL returns 404, check that the integration is loaded and restart Home Assistant once after installation.
+If it says **Custom element doesn't exist: outage-watch-card** after refreshing, add `/outage_watch/outage-watch-card.js?v=0.2.12` as a **JavaScript module** in **Settings → Dashboards → Resources** (enable **Advanced mode** in your user profile if Resources isn't visible). Reload the dashboard. If the module URL returns 404, check that the integration is loaded and restart Home Assistant once after installation.
 
 ## Install for beta testing
 
@@ -36,11 +36,22 @@ For manual installation, copy `custom_components/outage_watch` into your Home As
 
 If you already use Outage Watch, the integration domain and card type are unchanged. Keep your existing config entry to retain settings, service IDs, and history. Back up your configuration before replacing the manually installed component with HACS files.
 
+## Dashboard language
+
+Open **Settings → Language** to choose English, French, Dutch, German, Spanish, Filipino (Tagalog), Swedish, Italian, Polish, Danish, or Norwegian Bokmål. The dashboard saves the choice per browser or app. The language applies to dashboard controls, help, errors, and date and number formatting. Provider incident reports appear as published.
+
+## Service details, notifications, and tracking
+
+The dashboard opens with the service tiles. Select a tile to see its details, official status links when available, and recent response times.
+
+- Select **Notifications off** to enable alerts for that service. On first use, choose a phone registered with the Home Assistant Companion App. Outage Map remembers the destination for future alerts. Administrators can also set a notification action in the integration options.
+- Select **Pause Tracking** to stop endpoint checks for a service. Its tile, recent history, status links, and any official feed remain available. Select **Resume Tracking** to restart checks.
+
 ## Optional Speedtest graph and Run test button
 
 Choose **Enable Speedtest** in the dashboard header. Outage Map configures Home Assistant’s built-in Speedtest.net provider automatically or reuses it if it already exists. Enabling it runs a bandwidth test and normally schedules one every hour. Administrators can select **Run test** to start a test on demand.
 
-Open **Theme → Speedtest style** to choose **Classic**, **Signal Matrix**, **Neon Gauges**, **Flux Rails**, or **Aqua Wave**. The header and history graphs follow the dashboard theme, including Follow Appearance. Classic is the default, and the choice is saved per browser. The header trends use 24 hours of history. Gauges and rails display the latest readings.
+Open **Settings → Speedtest style** to choose **Classic**, **Signal Matrix**, **Neon Gauges**, **Flux Rails**, or **Aqua Wave**. The header and history graphs follow the dashboard theme, including Follow Appearance. All five styles are available in Star Trek at every screen size. Classic is the default, and the choice is saved per browser. The header trends use 24 hours of history. Gauges and rails display the latest readings.
 
 Click the graph or readings to open **Speedtest history**. Select **24 hours**, **7 days**, or **30 days** to view recorded download, upload, and ping. Home Assistant Recorder typically retains 10 days of detailed history by default. The longer view displays what is actually available and shows the oldest reading found. Hourly long-term averages are separate from this log.
 
@@ -74,7 +85,7 @@ The Star Trek header shows live server readings in a compact strip. On wider scr
 
 ## Mobile layout screenshots
 
-Choose **Theme → Mobile layout** to switch. **One column** is the default. Both screenshots use the same sample data at 390 px wide.
+Choose **Settings → Mobile layout** to switch. **One column** is the default. Both screenshots use the same sample data at 390 px wide.
 
 | One column | Two columns |
 | --- | --- |
@@ -106,14 +117,14 @@ For each service, use the status and problem entities in automations. URL checks
 
 ## Appearance and mobile layout
 
-Use **Theme** to pick a style or follow the current Appearance palette. The selection is stored in each browser. Under **Theme → Mobile layout**, choose **One column** for larger tiles or **Two columns** for a compact grid. This setting is saved per browser and only applies to narrow dashboard views. **Follow Appearance** uses the optional Yanke Appearance resource when available and native Home Assistant theme colors otherwise.
+Use **Settings** to pick a style or follow the current Appearance palette. The selection is stored in each browser. Under **Settings → Mobile layout**, choose **One column** for larger tiles or **Two columns** for a compact grid. This setting is saved per browser and only applies to narrow dashboard views. **Follow Appearance** uses the optional Yanke Appearance resource when available and native Home Assistant theme colors otherwise.
 
 
 Please report reproducible beta issues on [GitHub](https://github.com/yanke7/Home-Assistant/issues). Include your Home Assistant version and the relevant error or steps to reproduce. Remove tokens, addresses, and personal data from logs or screenshots.
 
 ## Optional server info
 
-Open **Theme → Server info → Show server info**. This is off by default and is saved per browser. The panel shows Home Assistant's version and the available CPU, memory, disk, temperature, and host uptime readings from [System Monitor](https://www.home-assistant.io/integrations/systemmonitor/). If host metrics are missing, select **Enable host metrics** in Server info. Outage Map sets up Home Assistant’s built-in System Monitor provider and enables the sensors used by this panel. Existing enabled sensors and dashboard entity overrides are reused. No extra checks run when the panel is open.
+Open **Settings → Server info → Show server info**. This is on by default in Star Trek and off by default in other themes. Your choice is saved per browser. The panel shows Home Assistant's version and the available CPU, memory, disk, temperature, and host uptime readings from [System Monitor](https://www.home-assistant.io/integrations/systemmonitor/). If host metrics are missing, select **Enable host metrics** in Server info. Outage Map sets up Home Assistant’s built-in System Monitor provider and enables the sensors used by this panel. Existing enabled sensors and dashboard entity overrides are reused. No extra checks run when the panel is open.
 
 For renamed or alternative sensors, add a `server_info_entities` mapping to the card YAML. Supported keys are `cpu`, `memory`, `disk`, `disk_free`, `temperature`, and `uptime`. CPU, memory, and disk usage should be percentage sensors. Host uptime expects a timestamp for the host's last boot. The disk sensors display the mount point selected in System Monitor.
 

@@ -2,6 +2,7 @@
 import asyncio
 import json
 from pathlib import Path
+from time import time
 from uuid import uuid4
 
 import voluptuous as vol
@@ -53,7 +54,7 @@ async def async_setup(hass, config):
         StaticPathConfig("/outage_watch/outage-watch-card.js", str(WWW / "outage-watch-card.js"), False),
         StaticPathConfig("/outage_watch/star-trek-badge.jpg", str(WWW / "outage-map-star-trek-badge.jpg"), True),
     ])
-    frontend.add_extra_js_url(hass, "/outage_watch/outage-watch-card.js?v=0.2.11")
+    frontend.add_extra_js_url(hass, "/outage_watch/outage-watch-card.js?v=0.2.12")
     websocket_api.async_register_command(hass, dashboard)
 
     async def manage(call):
@@ -90,7 +91,24 @@ async def async_setup(hass, config):
                     raise HomeAssistantError("Service is no longer tracked")
                 if call.service == "remove_service":
                     await monitor.remove(service_id)
+                elif call.service == "set_tracking_paused":
+                    service = monitor.services[service_id]
+                    if not service.get("url"):
+                        raise HomeAssistantError("This service only has a provider feed")
+                    if bool(service.get("paused")) != data["paused"]:
+                        service["paused"] = data["paused"]
+                        service["run_start"] = time()
+                        monitor.publish_state(service)
                 else:
+                    phone = data.get("phone")
+                    if phone:
+                        if not data["enabled"] or not phone.startswith("mobile_app_") or not hass.services.has_service("notify", phone):
+                            raise HomeAssistantError("Choose a registered mobile app notification action")
+                        if monitor.notify_action and monitor.notify_action != f"notify.{phone}":
+                            raise HomeAssistantError("The notification destination has changed. Refresh the dashboard.")
+                        monitor.notify_action = f"notify.{phone}"
+                        entry = entries[0]
+                        hass.config_entries.async_update_entry(entry, options={**entry.options, "notify_service": monitor.notify_action})
                     if data["enabled"] and not monitor.notify_action:
                         raise HomeAssistantError("Configure a notification action in Outage Map options first")
                     monitor.set_alerts(monitor.services[service_id], data["enabled"])
@@ -113,7 +131,8 @@ async def async_setup(hass, config):
     schemas = {
         "add_service": {vol.Optional(key): cv.string for key in ("catalog_id", "name", "url")},
         "remove_service": {service_id: cv.string},
-        "set_alerts": {service_id: cv.string, vol.Required("enabled"): cv.boolean},
+        "set_tracking_paused": {service_id: cv.string, vol.Required("paused"): cv.boolean},
+        "set_alerts": {service_id: cv.string, vol.Required("enabled"): cv.boolean, vol.Optional("phone"): cv.string},
     }
     for name, schema in schemas.items():
         async_register_admin_service(hass, DOMAIN, name, manage, vol.Schema(schema))

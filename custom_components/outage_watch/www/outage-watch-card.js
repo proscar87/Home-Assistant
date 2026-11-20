@@ -3,7 +3,7 @@ const escape = (value) => String(value ?? "").replace(/[&<>"']/g, (c) => ({
   "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
 })[c]);
 const icons = (name) => `<ha-icon icon="mdi:${escape(name)}"></ha-icon>`;
-const timestamp = (value) => value ? new Date(value * 1000).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"}) : "—";
+const timestamp = (value, locale) => value ? new Date(value * 1000).toLocaleTimeString(locale, {hour:"numeric", minute:"2-digit"}) : "—";
 const labels = {
   provider_outage: "Provider outage", unreachable: "Unreachable",
   provider_degraded: "Possible problems", slow: "Slow response",
@@ -93,7 +93,7 @@ function speedGraph(history, series, {days = 1, style = "classic", end = Date.no
     }
     return `${style === "wave" ? `<path class="wave-fill" d="${area + closeArea()}"/>` : ""}<path d="${path}"/>${dot}`;
   }
-  return `<svg class="speed-chart" viewBox="0 0 96 24" role="img" aria-label="Recorded ${ping ? "ping" : "download and upload speeds"} over the last ${SPEED_RANGES[days]}">
+  return `<svg class="speed-chart" viewBox="0 0 96 24" preserveAspectRatio="none" role="img" aria-label="Recorded ${ping ? "ping" : "download and upload speeds"} · ${SPEED_RANGES[days]}">
     <path class="speed-grid" d="M2 12h92 M2 22h92 M25 2v20 M48 2v20 M71 2v20"/>
     ${lines.map(({key,points}) => `<g class="${key}">${marks(points)}</g>`).join("")}
   </svg>`;
@@ -121,11 +121,167 @@ const SERVER_SENSORS = [
 const serviceCategory = (service) => service.category || "Custom";
 const validTheme = (value) => Object.hasOwn(THEMES, value);
 
+const DASHBOARD_LANGUAGES = {en:"English",fr:"Français",nl:"Nederlands",de:"Deutsch",es:"Español",fil:"Filipino (Tagalog)",sv:"Svenska",it:"Italiano",pl:"Polski",da:"Dansk",nb:"Norsk bokmål"};
+const LANGUAGE_KEY = "outage-watch.language";
+const LANGUAGE_CODES = Object.keys(DASHBOARD_LANGUAGES).slice(1);
+const UI_TRANSLATIONS = Object.freeze({
+  "Filter tracked services": ["Filtrer les services suivis", "Gevolgde diensten filteren", "Überwachte Dienste filtern", "Filtrar servicios supervisados", "Salain ang mga sinusubaybayang serbisyo", "Filtrera övervakade tjänster", "Filtra servizi monitorati", "Filtruj monitorowane usługi", "Filtrer overvågede tjenester", "Filtrer overvåkede tjenester"],
+  "Filter tracked services by category": ["Filtrer les services par catégorie", "Diensten filteren op categorie", "Dienste nach Kategorie filtern", "Filtrar servicios por categoría", "Salain ang mga serbisyo ayon sa kategorya", "Filtrera tjänster efter kategori", "Filtra servizi per categoria", "Filtruj usługi według kategorii", "Filtrer tjenester efter kategori", "Filtrer tjenester etter kategori"],
+  "Home Assistant server info": ["Informations sur le serveur Home Assistant", "Home Assistant-serverinformatie", "Home Assistant-Serverinformationen", "Información del servidor de Home Assistant", "Impormasyon ng server ng Home Assistant", "Serverinfo för Home Assistant", "Informazioni sul server Home Assistant", "Informacje o serwerze Home Assistant", "Serverinfo for Home Assistant", "Serverinfo for Home Assistant"],
+  "Open full-size Star Trek badge": ["Ouvrir l’insigne Star Trek en grand", "Star Trek-embleem op ware grootte openen", "Star-Trek-Abzeichen in voller Größe öffnen", "Abrir insignia de Star Trek a tamaño completo", "Buksan ang buong laki ng sagisag ng Star Trek", "Öppna Star Trek-märket i full storlek", "Apri lo stemma Star Trek a grandezza intera", "Otwórz odznakę Star Trek w pełnym rozmiarze", "Åbn Star Trek-mærket i fuld størrelse", "Åpne Star Trek-merket i full størrelse"],
+  "Service category": ["Catégorie de service", "Dienstcategorie", "Dienstkategorie", "Categoría del servicio", "Kategorya ng serbisyo", "Tjänstekategori", "Categoria del servizio", "Kategoria usługi", "Tjenestekategori", "Tjenestekategori"],
+  "Public HTTP URL": ["URL HTTP publique", "Openbare HTTP-URL", "Öffentliche HTTP-URL", "URL HTTP pública", "Pampublikong HTTP URL", "Offentlig HTTP-adress", "URL HTTP pubblico", "Publiczny adres HTTP", "Offentlig HTTP-adresse", "Offentlig HTTP-adresse"],
+  "Response time over 24 hours": ["Temps de réponse sur 24 heures", "Responstijd over 24 uur", "Antwortzeit über 24 Stunden", "Tiempo de respuesta en 24 horas", "Oras ng tugon sa loob ng 24 oras", "Svarstid under 24 timmar", "Tempo di risposta nelle 24 ore", "Czas odpowiedzi w ciągu 24 godzin", "Svartid over 24 timer", "Svartid over 24 timer"],
+  "Recorded ping": ["Latence enregistrée", "Gemeten ping", "Erfasster Ping", "Latencia registrada", "Naitalang ping", "Registrerad ping", "Ping registrato", "Zapisany ping", "Registreret ping", "Registrert ping"],
+  "Recorded download and upload speeds": ["Débits montant et descendant enregistrés", "Gemeten download- en uploadsnelheden", "Erfasste Download- und Uploadgeschwindigkeit", "Velocidades de descarga y subida registradas", "Naitalang bilis ng download at upload", "Registrerade ned- och uppladdningshastigheter", "Velocità di download e upload registrate", "Zapisane prędkości pobierania i wysyłania", "Registrerede download- og uploadhastigheder", "Registrerte nedlastings- og opplastingshastigheter"],
+
+  "No response time history yet": ["Aucun temps de réponse enregistré", "Nog geen responstijden vastgelegd", "Noch keine Antwortzeiten erfasst", "Aún no hay tiempos de respuesta", "Wala pang naitalang oras ng tugon", "Inga svarstider registrerade ännu", "Nessun tempo di risposta registrato", "Brak zapisanych czasów odpowiedzi", "Ingen svartider registreret endnu", "Ingen registrerte svartider ennå"],
+  "Loading recorded readings…": ["Chargement des mesures…", "Metingen laden…", "Messwerte werden geladen…", "Cargando mediciones…", "Nilo-load ang mga sukat…", "Läser in mätvärden…", "Caricamento misurazioni…", "Wczytywanie pomiarów…", "Indlæser målinger…", "Laster inn målinger…"],
+  "Speedtest history could not be loaded.": ["Impossible de charger l’historique des débits.", "De testgeschiedenis kon niet worden geladen.", "Der Testverlauf konnte nicht geladen werden.", "No se pudo cargar el historial de velocidad.", "Hindi ma-load ang kasaysayan ng speed test.", "Testhistoriken kunde inte läsas in.", "Impossibile caricare la cronologia dei test.", "Nie udało się wczytać historii testów.", "Testhistorikken kunne ikke indlæses.", "Kunne ikke laste inn testhistorikken."],
+  "No recorded Speedtest readings for this period.": ["Aucune mesure de débit pour cette période.", "Geen snelheidsmetingen voor deze periode.", "Keine Geschwindigkeitsmessungen für diesen Zeitraum.", "No hay mediciones de velocidad para este período.", "Walang naitalang speed test sa panahong ito.", "Inga hastighetsmätningar under perioden.", "Nessuna misurazione di velocità per questo periodo.", "Brak pomiarów prędkości w tym okresie.", "Ingen hastighedsmålinger i perioden.", "Ingen hastighetsmålinger i perioden."],
+  "Loading history": ["Chargement de l’historique", "Geschiedenis laden", "Verlauf wird geladen", "Cargando historial", "Nilo-load ang kasaysayan", "Läser in historik", "Caricamento cronologia", "Wczytywanie historii", "Indlæser historik", "Laster historikk"],
+  "Running Speedtest…": ["Test de débit en cours…", "Snelheidstest loopt…", "Speedtest läuft…", "Prueba de velocidad en curso…", "Isinasagawa ang speed test…", "Hastighetstest pågår…", "Test di velocità in corso…", "Trwa test prędkości…", "Hastighedstest i gang…", "Hastighetstest pågår…"],
+  "Speedtest updated": ["Mesures de débit actualisées", "Snelheidsmeting bijgewerkt", "Speedtest aktualisiert", "Prueba de velocidad actualizada", "Na-update ang speed test", "Hastighetstest uppdaterat", "Test di velocità aggiornato", "Zaktualizowano test prędkości", "Hastighedstest opdateret", "Hastighetstest oppdatert"],
+  "No new Speedtest reading": ["Aucune nouvelle mesure de débit", "Geen nieuwe snelheidsmeting", "Kein neuer Speedtest-Messwert", "Sin nuevas mediciones de velocidad", "Walang bagong resulta ng speed test", "Ingen ny hastighetsmätning", "Nessuna nuova misurazione", "Brak nowego pomiaru prędkości", "Ingen ny hastighedsmåling", "Ingen ny hastighetsmåling"],
+  "Speedtest could not run": ["Impossible de lancer le test de débit", "Snelheidstest kon niet worden uitgevoerd", "Speedtest konnte nicht ausgeführt werden", "No se pudo ejecutar la prueba", "Hindi maisagawa ang speed test", "Hastighetstestet kunde inte köras", "Impossibile eseguire il test", "Nie udało się uruchomić testu", "Hastighedstesten kunne ikke køres", "Kunne ikke kjøre hastighetstesten"],
+  "Could not load Outage Map.": ["Impossible de charger Outage Map.", "Outage Map kon niet worden geladen.", "Outage Map konnte nicht geladen werden.", "No se pudo cargar Outage Map.", "Hindi ma-load ang Outage Map.", "Outage Map kunde inte läsas in.", "Impossibile caricare Outage Map.", "Nie udało się wczytać Outage Map.", "Outage Map kunne ikke indlæses.", "Kunne ikke laste inn Outage Map."],
+  "Could not save the change.": ["Impossible d’enregistrer la modification.", "De wijziging kon niet worden opgeslagen.", "Die Änderung konnte nicht gespeichert werden.", "No se pudo guardar el cambio.", "Hindi ma-save ang pagbabago.", "Ändringen kunde inte sparas.", "Impossibile salvare la modifica.", "Nie udało się zapisać zmiany.", "Ændringen kunne ikke gemmes.", "Kunne ikke lagre endringen."],
+  "Enable Speedtest? Home Assistant starts a test and normally runs one every hour.": ["Activer le test de débit ? Home Assistant lance un test maintenant, puis normalement toutes les heures.", "Snelheidstest inschakelen? Home Assistant start nu een test en test normaal elk uur.", "Speedtest aktivieren? Home Assistant startet jetzt einen Test und führt normalerweise stündlich einen aus.", "¿Activar la prueba de velocidad? Home Assistant inicia una prueba y normalmente la repite cada hora.", "Paganahin ang speed test? Magsisimula ng test ang Home Assistant at karaniwang uulitin ito bawat oras.", "Aktivera hastighetstest? Home Assistant startar ett test och kör normalt ett varje timme.", "Attivare il test di velocità? Home Assistant avvia un test e di norma lo ripete ogni ora.", "Włączyć test prędkości? Home Assistant uruchomi test teraz i zwykle będzie go powtarzać co godzinę.", "Aktivér hastighedstest? Home Assistant starter en test og gentager den normalt hver time.", "Aktivere hastighetstest? Home Assistant starter en test og kjører vanligvis en hver time."],
+  "Enabling…": ["Activation…", "Inschakelen…", "Wird aktiviert…", "Activando…", "Pinapagana…", "Aktiverar…", "Attivazione…", "Włączanie…", "Aktiverer…", "Aktiverer…"],
+  "Use this phone for Outage Map alerts. Notifications will turn on for this service.": ["Utiliser ce téléphone pour les alertes Outage Map. Les notifications seront activées pour ce service.", "Gebruik deze telefoon voor Outage Map-meldingen. Meldingen worden ingeschakeld voor deze dienst.", "Dieses Telefon für Outage Map verwenden. Benachrichtigungen werden für diesen Dienst aktiviert.", "Usa este teléfono para las alertas de Outage Map. Se activarán las notificaciones para este servicio.", "Gamitin ang teleponong ito para sa mga alerto ng Outage Map. Bubuksan ang mga abiso para sa serbisyong ito.", "Använd telefonen för larm från Outage Map. Aviseringar aktiveras för den här tjänsten.", "Usa questo telefono per gli avvisi di Outage Map. Le notifiche verranno attivate per questo servizio.", "Użyj tego telefonu do alertów Outage Map. Powiadomienia zostaną włączone dla tej usługi.", "Brug telefonen til alarmer fra Outage Map. Notifikationer aktiveres for denne tjeneste.", "Bruk telefonen til varsler fra Outage Map. Varsler slås på for denne tjenesten."],
+  "No phones registered for notifications. Connect the Home Assistant Companion App and allow notifications, then reopen this picker.": ["Aucun téléphone inscrit. Connectez l’application Companion de Home Assistant, autorisez les notifications, puis rouvrez cette liste.", "Geen telefoons geregistreerd. Verbind de Home Assistant Companion-app, sta meldingen toe en open deze lijst opnieuw.", "Kein Telefon registriert. Verbinden Sie die Home Assistant Companion App, erlauben Sie Benachrichtigungen und öffnen Sie die Auswahl erneut.", "No hay teléfonos registrados. Conecta la app Companion de Home Assistant, permite las notificaciones y vuelve a abrir esta lista.", "Walang nakarehistrong telepono. Ikonekta ang Home Assistant Companion App, payagan ang mga abiso at buksan muli ang listahan.", "Inga telefoner registrerade. Anslut Home Assistant Companion-appen, tillåt aviseringar och öppna listan igen.", "Nessun telefono registrato. Collega l’app Companion di Home Assistant, consenti le notifiche e riapri questo elenco.", "Brak zarejestrowanych telefonów. Połącz aplikację Home Assistant Companion, zezwól na powiadomienia i ponownie otwórz listę.", "Ingen telefoner registreret. Tilslut Home Assistant Companion-appen, tillad notifikationer, og åbn listen igen.", "Ingen telefoner registrert. Koble til Home Assistant Companion-appen, tillat varsler og åpne listen igjen."],
+  "Shows recorded sensor changes. Longer ranges can be incomplete if Home Assistant has purged older history.": ["Affiche les changements enregistrés par les capteurs. Les périodes longues peuvent être incomplètes si Home Assistant a supprimé les anciennes données.", "Toont vastgelegde sensorwijzigingen. Langere perioden kunnen onvolledig zijn als Home Assistant oudere gegevens heeft verwijderd.", "Zeigt aufgezeichnete Sensoränderungen. Längere Zeiträume können Lücken enthalten, wenn Home Assistant ältere Daten gelöscht hat.", "Muestra los cambios registrados por los sensores. Los períodos largos pueden estar incompletos si Home Assistant eliminó datos antiguos.", "Ipinapakita ang naitalang pagbabago ng mga sensor. Maaaring kulang ang datos sa mahabang panahon kung binura ng Home Assistant ang lumang kasaysayan.", "Visar registrerade sensorändringar. Längre perioder kan ha luckor om Home Assistant har rensat äldre historik.", "Mostra le variazioni registrate dai sensori. I periodi lunghi possono essere incompleti se Home Assistant ha eliminato i dati meno recenti.", "Pokazuje zapisane zmiany czujników. Dłuższe okresy mogą zawierać luki, jeśli Home Assistant usunął starsze dane.", "Viser registrerede sensorændringer. Længere perioder kan have huller, hvis Home Assistant har slettet ældre data.", "Viser registrerte sensorendringer. Lengre perioder kan ha hull hvis Home Assistant har slettet eldre data."],
+  "Internet connectivity may be disrupted": ["La connexion Internet est peut-être interrompue", "De internetverbinding is mogelijk verstoord", "Die Internetverbindung ist möglicherweise gestört", "La conexión a Internet puede estar interrumpida", "Maaaring may problema sa koneksyon sa internet", "Internetanslutningen kan vara störd", "La connessione Internet potrebbe essere interrotta", "Połączenie internetowe może być zakłócone", "Internetforbindelsen kan være afbrudt", "Internettforbindelsen kan være brutt"],
+  "Home Assistant couldn’t reach either connectivity check. Service alerts are paused.": ["Les deux tests de connexion ont échoué. Les alertes de service sont suspendues.", "Beide verbindingstests van Home Assistant zijn mislukt. Dienstmeldingen zijn gepauzeerd.", "Beide Verbindungstests von Home Assistant sind fehlgeschlagen. Dienstmeldungen sind pausiert.", "Fallaron las dos comprobaciones de conexión de Home Assistant. Las alertas de servicios están en pausa.", "Nabigo ang parehong pagsusuri ng koneksyon ng Home Assistant. Naka-pause ang mga alerto ng serbisyo.", "Båda anslutningskontrollerna i Home Assistant misslyckades. Tjänstelarmen är pausade.", "Entrambi i controlli di connessione di Home Assistant sono falliti. Gli avvisi dei servizi sono sospesi.", "Oba testy łączności Home Assistant nie powiodły się. Alerty usług są wstrzymane.", "Begge forbindelsestjek i Home Assistant mislykkedes. Tjenestealarmer er sat på pause.", "Begge forbindelseskontrollene i Home Assistant mislyktes. Tjenestevarsler er satt på pause."],
+  "See official status for details.": ["Consultez le statut officiel pour les détails.", "Bekijk de officiële status voor details.", "Details finden Sie im offiziellen Status.", "Consulta el estado oficial para más detalles.", "Tingnan ang opisyal na katayuan para sa detalye.", "Se officiell status för detaljer.", "Consulta lo stato ufficiale per i dettagli.", "Szczegóły znajdziesz na oficjalnej stronie statusu.", "Se officiel status for detaljer.", "Se offisiell status for detaljer."],
+  "No matching catalog services.": ["Aucun service correspondant.", "Geen overeenkomende diensten.", "Keine passenden Dienste gefunden.", "No hay servicios que coincidan.", "Walang katugmang serbisyo sa katalogo.", "Inga matchande tjänster.", "Nessun servizio corrispondente.", "Brak pasujących usług.", "Ingen matchende tjenester.", "Ingen samsvarende tjenester."],
+  "No services tracked yet.": ["Aucun service suivi pour le moment.", "Er worden nog geen diensten gevolgd.", "Noch keine Dienste überwacht.", "Aún no se supervisa ningún servicio.", "Wala pang sinusubaybayang serbisyo.", "Inga tjänster övervakas ännu.", "Nessun servizio ancora monitorato.", "Nie są jeszcze monitorowane żadne usługi.", "Ingen tjenester overvåges endnu.", "Ingen tjenester overvåkes ennå."],
+  "No services available to view.": ["Aucun service à afficher.", "Geen diensten om te bekijken.", "Keine Dienste zur Anzeige verfügbar.", "No hay servicios para mostrar.", "Walang serbisyong maipapakita.", "Inga tjänster att visa.", "Nessun servizio da visualizzare.", "Brak usług do wyświetlenia.", "Ingen tjenester at vise.", "Ingen tjenester å vise."],
+  "Home Assistant could not reach this endpoint.": ["Home Assistant n’a pas pu joindre ce point de terminaison.", "Home Assistant kon dit eindpunt niet bereiken.", "Home Assistant konnte diesen Endpunkt nicht erreichen.", "Home Assistant no pudo acceder a este punto de conexión.", "Hindi maabot ng Home Assistant ang endpoint na ito.", "Home Assistant kunde inte nå slutpunkten.", "Home Assistant non ha potuto raggiungere questo endpoint.", "Home Assistant nie mógł połączyć się z tym punktem końcowym.", "Home Assistant kunne ikke nå dette endepunkt.", "Home Assistant kunne ikke nå dette endepunktet."],
+  "This tile reflects checks from your network.": ["Cette tuile indique les vérifications depuis votre réseau.", "Deze tegel toont controles vanaf je netwerk.", "Diese Kachel zeigt Prüfungen aus Ihrem Netzwerk.", "Esta tarjeta muestra comprobaciones desde tu red.", "Ipinapakita rito ang mga pagsusuri mula sa iyong network.", "Rutan visar kontroller från ditt nätverk.", "Questa scheda mostra i controlli dalla tua rete.", "Ten kafelek pokazuje kontrole z Twojej sieci.", "Feltet viser kontroller fra dit netværk.", "Kortet viser kontroller fra nettverket ditt."],
+  "Connectivity checks paused": ["Tests de connexion suspendus", "Verbindingscontroles gepauzeerd", "Verbindungsprüfungen pausiert", "Comprobaciones de conexión en pausa", "Naka-pause ang pagsusuri ng koneksyon", "Anslutningskontroller pausade", "Controlli di connessione sospesi", "Kontrole łączności wstrzymane", "Forbindelsestjek sat på pause", "Forbindelseskontroller satt på pause"],
+  "Enter a public HTTP or HTTPS URL without credentials": ["Saisissez une URL HTTP ou HTTPS publique sans identifiants", "Voer een openbare HTTP- of HTTPS-URL zonder inloggegevens in", "Geben Sie eine öffentliche HTTP- oder HTTPS-URL ohne Zugangsdaten ein", "Introduce una URL HTTP o HTTPS pública sin credenciales", "Maglagay ng pampublikong HTTP o HTTPS URL na walang kredensyal", "Ange en offentlig HTTP- eller HTTPS-adress utan inloggningsuppgifter", "Inserisci un URL HTTP o HTTPS pubblico senza credenziali", "Podaj publiczny adres HTTP lub HTTPS bez danych logowania", "Angiv en offentlig HTTP- eller HTTPS-adresse uden loginoplysninger", "Angi en offentlig HTTP- eller HTTPS-adresse uten påloggingsinformasjon"],
+  "Enter a public address": ["Saisissez une adresse publique", "Voer een openbaar adres in", "Geben Sie eine öffentliche Adresse ein", "Introduce una dirección pública", "Maglagay ng pampublikong address", "Ange en offentlig adress", "Inserisci un indirizzo pubblico", "Podaj adres publiczny", "Angiv en offentlig adresse", "Angi en offentlig adresse"],
+  "Set up Outage Map first": ["Configurez d’abord Outage Map", "Stel eerst Outage Map in", "Richten Sie zuerst Outage Map ein", "Configura primero Outage Map", "I-set up muna ang Outage Map", "Konfigurera Outage Map först", "Configura prima Outage Map", "Najpierw skonfiguruj Outage Map", "Konfigurer først Outage Map", "Sett opp Outage Map først"],
+  "Unknown catalog service": ["Service du catalogue inconnu", "Onbekende catalogusdienst", "Unbekannter Katalogdienst", "Servicio de catálogo desconocido", "Hindi kilalang serbisyo sa katalogo", "Okänd katalogtjänst", "Servizio di catalogo sconosciuto", "Nieznana usługa katalogowa", "Ukendt katalogtjeneste", "Ukjent katalogtjeneste"],
+  "Choose a catalog service or enter a name and URL": ["Choisissez un service du catalogue ou saisissez un nom et une URL", "Kies een catalogusdienst of voer een naam en URL in", "Wählen Sie einen Katalogdienst oder geben Sie Name und URL ein", "Elige un servicio del catálogo o introduce un nombre y una URL", "Pumili sa katalogo o maglagay ng pangalan at URL", "Välj en katalogtjänst eller ange namn och URL", "Scegli un servizio dal catalogo o inserisci nome e URL", "Wybierz usługę z katalogu lub podaj nazwę i adres URL", "Vælg en katalogtjeneste, eller angiv navn og URL", "Velg en katalogtjeneste eller skriv inn navn og URL"],
+  "This service is already tracked": ["Ce service est déjà suivi", "Deze dienst wordt al gevolgd", "Dieser Dienst wird bereits überwacht", "Este servicio ya se supervisa", "Sinusubaybayan na ang serbisyong ito", "Tjänsten övervakas redan", "Questo servizio è già monitorato", "Ta usługa jest już monitorowana", "Denne tjeneste overvåges allerede", "Denne tjenesten overvåkes allerede"],
+  "Service is no longer tracked": ["Ce service n’est plus suivi", "Deze dienst wordt niet meer gevolgd", "Dieser Dienst wird nicht mehr überwacht", "Este servicio ya no se supervisa", "Hindi na sinusubaybayan ang serbisyo", "Tjänsten övervakas inte längre", "Il servizio non è più monitorato", "Ta usługa nie jest już monitorowana", "Tjenesten overvåges ikke længere", "Tjenesten overvåkes ikke lenger"],
+  "This service only has a provider feed": ["Ce service dispose uniquement d’un flux fournisseur", "Deze dienst heeft alleen een providerfeed", "Dieser Dienst hat nur einen Anbieterfeed", "Este servicio solo tiene una fuente de estado del proveedor", "Feed lang ng provider ang mayroon ang serbisyong ito", "Tjänsten har endast ett leverantörsflöde", "Il servizio dispone solo del feed del fornitore", "Ta usługa ma tylko kanał dostawcy", "Tjenesten har kun et leverandørfeed", "Tjenesten har bare en leverandørfeed"],
+  "Choose a registered mobile app notification action": ["Choisissez une action de notification d’une appli mobile inscrite", "Kies een geregistreerde meldingsactie van de mobiele app", "Wählen Sie eine registrierte Benachrichtigungsaktion der mobilen App", "Elige una acción de notificación registrada de la app móvil", "Pumili ng nakarehistrong aksiyon sa abiso ng mobile app", "Välj en registrerad aviseringsåtgärd för mobilappen", "Scegli un’azione di notifica registrata dell’app mobile", "Wybierz zarejestrowaną akcję powiadomień aplikacji mobilnej", "Vælg en registreret notifikationshandling fra mobilappen", "Velg en registrert varslingshandling fra mobilappen"],
+  "The notification destination has changed. Refresh the dashboard.": ["La destination des notifications a changé. Actualisez le tableau de bord.", "De meldingsbestemming is gewijzigd. Vernieuw het dashboard.", "Das Benachrichtigungsziel hat sich geändert. Laden Sie das Dashboard neu.", "El destino de las notificaciones cambió. Actualiza el panel.", "Nagbago ang patutunguhan ng mga abiso. I-refresh ang dashboard.", "Målet för aviseringar har ändrats. Uppdatera panelen.", "La destinazione delle notifiche è cambiata. Aggiorna la dashboard.", "Cel powiadomień został zmieniony. Odśwież panel.", "Notifikationernes destination er ændret. Opdatér dashboardet.", "Varslingsmålet er endret. Oppdater dashbordet."],
+  "Configure a notification action in Outage Map options first": ["Configurez d’abord une action de notification dans les options d’Outage Map", "Stel eerst een meldingsactie in bij de opties van Outage Map", "Konfigurieren Sie zuerst eine Benachrichtigungsaktion in den Outage Map-Optionen", "Configura primero una acción de notificación en las opciones de Outage Map", "Mag-set up muna ng aksiyon sa abiso sa mga opsyon ng Outage Map", "Konfigurera först en aviseringsåtgärd i alternativen för Outage Map", "Configura prima un’azione di notifica nelle opzioni di Outage Map", "Najpierw skonfiguruj akcję powiadomień w opcjach Outage Map", "Konfigurer først en notifikationshandling i Outage Maps indstillinger", "Sett først opp en varslingshandling i innstillingene for Outage Map"],
+  "Home Assistant could not set up the readout provider": ["Home Assistant n’a pas pu configurer le fournisseur de mesures", "Home Assistant kon de meetprovider niet instellen", "Home Assistant konnte die Messwertquelle nicht einrichten", "Home Assistant no pudo configurar el proveedor de mediciones", "Hindi ma-set up ng Home Assistant ang tagapagbigay ng mga sukat", "Home Assistant kunde inte konfigurera mätkällan", "Home Assistant non ha potuto configurare il fornitore delle misurazioni", "Home Assistant nie mógł skonfigurować źródła pomiarów", "Home Assistant kunne ikke konfigurere målekilden", "Home Assistant kunne ikke sette opp målekilden"],
+  "First recorded reading:": ["Première mesure enregistrée :", "Eerste vastgelegde meting:", "Erster erfasster Messwert:", "Primera medición registrada:", "Unang naitalang sukat:", "Första registrerade mätning:", "Prima misurazione registrata:", "Pierwszy zapisany pomiar:", "Første registrerede måling:", "Første registrerte måling:"],
+  "Download and upload share a scale.": ["Les débits montant et descendant utilisent la même échelle.", "Download en upload gebruiken dezelfde schaal.", "Download und Upload verwenden dieselbe Skala.", "La descarga y la subida usan la misma escala.", "Iisa ang iskala ng download at upload.", "Ned- och uppladdning använder samma skala.", "Download e upload usano la stessa scala.", "Pobieranie i wysyłanie używają tej samej skali.", "Download og upload bruger samme skala.", "Nedlasting og opplasting bruker samme skala."],
+  "Recorded time": ["Heure de mesure", "Tijdstip meting", "Messzeit", "Hora de registro", "Oras ng pagtatala", "Mättid", "Ora di registrazione", "Czas pomiaru", "Måletidspunkt", "Måletidspunkt"],
+  "Most recent Speedtest readings": ["Dernières mesures de débit", "Laatste snelheidsmetingen", "Neueste Speedtest-Messwerte", "Últimas mediciones de velocidad", "Pinakabagong mga sukat ng speed test", "Senaste hastighetsmätningar", "Ultime misurazioni di velocità", "Ostatnie pomiary prędkości", "Seneste hastighedsmålinger", "Siste hastighetsmålinger"],
+  "Page {page} of {total}": ["Page {page} sur {total}", "Pagina {page} van {total}", "Seite {page} von {total}", "Página {page} de {total}", "Pahina {page} ng {total}", "Sida {page} av {total}", "Pagina {page} di {total}", "Strona {page} z {total}", "Side {page} af {total}", "Side {page} av {total}"],
+  "{service} is reporting an incident": ["{service} signale un incident", "{service} meldt een incident", "{service} meldet einen Vorfall", "{service} informa de un incidente", "May iniulat na insidente ang {service}", "{service} rapporterar en incident", "{service} segnala un incidente", "{service} zgłasza incydent", "{service} melder om en hændelse", "{service} melder om en hendelse"],
+  "The original industrial console": ["La console industrielle d’origine", "De oorspronkelijke industriële console", "Die ursprüngliche Industriekonsole", "La consola industrial original", "Ang orihinal na konsolang industriyal", "Den ursprungliga industrikonsolen", "La console industriale originale", "Oryginalna konsola przemysłowa", "Den oprindelige industrikonsol", "Den opprinnelige industrikonsollen"],
+  "Vintage instruments, amber displays": ["Instruments rétro et écrans ambrés", "Retro-instrumenten en amberkleurige schermen", "Retro-Instrumente und bernsteinfarbene Anzeigen", "Instrumentos retro y pantallas ámbar", "Mga klasikong instrumento at kulay-ambar na display", "Retroinstrument och bärnstensfärgade skärmar", "Strumenti rétro e schermi ambrati", "Przyrządy retro i bursztynowe wyświetlacze", "Retroinstrumenter og ravfarvede skærme", "Retroinstrumenter og ravfargede skjermer"],
+  "Cyan wireframes and magenta accents": ["Contours cyan et touches magenta", "Cyaan lijnen en magenta accenten", "Cyanfarbene Konturen und magentafarbene Akzente", "Contornos cian y detalles magenta", "Mga linyang cyan at detalyeng magenta", "Cyanfärgade konturer och magentadetaljer", "Contorni ciano e dettagli magenta", "Cyjanowe kontury i purpurowe akcenty", "Cyanfarvede konturer og magentadetaljer", "Cyanfargede konturer og magentadetaljer"],
+  "Soft blue glow and rounded panels": ["Halo bleu doux et panneaux arrondis", "Zachte blauwe gloed en afgeronde panelen", "Sanftes blaues Leuchten und abgerundete Flächen", "Brillo azul suave y paneles redondeados", "Banayad na asul na ningning at mga panel na bilugan ang gilid", "Mjukt blått sken och rundade paneler", "Luce blu tenue e pannelli arrotondati", "Delikatna niebieska poświata i zaokrąglone panele", "Blødt blåt skær og afrundede paneler", "Mykt blått lys og avrundede paneler"],
+  "Layered teal and luminous glass": ["Nuances de bleu-vert et verre lumineux", "Gelaagd blauwgroen en lichtgevend glas", "Blaugrüne Ebenen und leuchtendes Glas", "Capas de verde azulado y cristal luminoso", "Mga patong na bughaw-berde at kumikinang na salamin", "Blågröna lager och lysande glas", "Strati verde petrolio e vetro luminoso", "Turkusowe warstwy i świetliste szkło", "Blågrønne lag og lysende glas", "Blågrønne lag og lysende glass"],
+  "Amber controls and lilac panel rails": ["Commandes ambrées et bordures lilas", "Amberkleurige knoppen en lila paneelranden", "Bernsteinfarbene Bedienelemente und lilafarbene Rahmen", "Controles ámbar y bordes lilas", "Mga kontrol na kulay-ambar at lilang gilid ng panel", "Bärnstensfärgade reglage och lila panelkanter", "Comandi ambra e bordi lilla", "Bursztynowe przyciski i liliowe ramki", "Ravfarvede knapper og lilla panelkanter", "Ravfargede kontroller og lilla panelkanter"],
+  "Use your shared palette, font and text size": ["Utiliser votre palette, votre police et votre taille de texte partagées", "Gebruik je gedeelde kleuren, lettertype en tekstgrootte", "Gemeinsame Farbpalette, Schriftart und Textgröße verwenden", "Usa la paleta, la fuente y el tamaño de texto compartidos", "Gamitin ang nakabahaging mga kulay, font at laki ng teksto", "Använd din gemensamma palett, ditt typsnitt och din textstorlek", "Usa la palette, il carattere e la dimensione del testo condivisi", "Użyj wspólnej palety, czcionki i rozmiaru tekstu", "Brug din fælles palet, skrifttype og tekststørrelse", "Bruk felles palett, skrifttype og tekststørrelse"],
+  "Close settings": ["Fermer les réglages", "Instellingen sluiten", "Einstellungen schließen", "Cerrar ajustes", "Isara ang mga setting", "Stäng inställningar", "Chiudi impostazioni", "Zamknij ustawienia", "Luk indstillinger", "Lukk innstillinger"],
+  "Close details": ["Fermer les détails", "Details sluiten", "Details schließen", "Cerrar detalles", "Isara ang mga detalye", "Stäng detaljer", "Chiudi dettagli", "Zamknij szczegóły", "Luk detaljer", "Lukk detaljer"],
+  "Open Speedtest history": ["Ouvrir l’historique des débits", "Testgeschiedenis openen", "Speedtest-Verlauf öffnen", "Abrir historial de velocidad", "Buksan ang kasaysayan ng speed test", "Öppna testhistoriken", "Apri cronologia test", "Otwórz historię testów", "Åbn testhistorik", "Åpne testhistorikk"],
+  "Close Speedtest history": ["Fermer l’historique des débits", "Testgeschiedenis sluiten", "Speedtest-Verlauf schließen", "Cerrar historial de velocidad", "Isara ang kasaysayan ng speed test", "Stäng testhistoriken", "Chiudi cronologia test", "Zamknij historię testów", "Luk testhistorik", "Lukk testhistorikk"],
+  "History period": ["Période de l’historique", "Geschiedenisperiode", "Verlaufszeitraum", "Período del historial", "Panahon ng kasaysayan", "Historikperiod", "Periodo cronologia", "Okres historii", "Historikperiode", "Historikkperiode"],
+  "scale": ["échelle", "schaal", "Skala", "escala", "iskala", "skala", "scala", "skala", "skala", "skala"],
+
+  "Language": ["Langue", "Taal", "Sprache", "Idioma", "Wika", "Språk", "Lingua", "Język", "Sprog", "Språk"],
+  "Settings": ["Réglages", "Instellingen", "Einstellungen", "Ajustes", "Mga setting", "Inställningar", "Impostazioni", "Ustawienia", "Indstillinger", "Innstillinger"],
+  "Dashboard settings": ["Réglages du tableau de bord", "Dashboardinstellingen", "Dashboard-Einstellungen", "Ajustes del panel", "Mga setting ng dashboard", "Panelinställningar", "Impostazioni della dashboard", "Ustawienia panelu", "Dashboardindstillinger", "Innstillinger for dashbord"],
+  "+ Add service": ["+ Ajouter un service", "+ Dienst toevoegen", "+ Dienst hinzufügen", "+ Añadir servicio", "+ Magdagdag ng serbisyo", "+ Lägg till tjänst", "+ Aggiungi servizio", "+ Dodaj usługę", "+ Tilføj tjeneste", "+ Legg til tjeneste"],
+  "Services": ["Services", "Diensten", "Dienste", "Servicios", "Mga serbisyo", "Tjänster", "Servizi", "Usługi", "Tjenester", "Tjenester"],
+  "Outages": ["Pannes", "Storingen", "Ausfälle", "Interrupciones", "Mga pagkaantala", "Avbrott", "Interruzioni", "Awarie", "Nedbrud", "Avbrudd"],
+  "Possible problems": ["Problèmes possibles", "Mogelijke problemen", "Mögliche Probleme", "Posibles problemas", "Posibleng problema", "Möjliga problem", "Possibili problemi", "Możliwe problemy", "Mulige problemer", "Mulige problemer"],
+  "Healthy": ["Disponibles", "In orde", "In Ordnung", "En buen estado", "Maayos", "Fungerar", "Funzionanti", "Sprawne", "Velfungerende", "Fungerer"],
+  "Unknown": ["Inconnu", "Onbekend", "Unbekannt", "Desconocido", "Hindi alam", "Okänd", "Sconosciuto", "Nieznany", "Ukendt", "Ukjent"],
+  "Your services, at a glance.": ["Vos services en un coup d’œil.", "Je diensten in één oogopslag.", "Ihre Dienste auf einen Blick.", "Tus servicios de un vistazo.", "Isang tingin sa iyong mga serbisyo.", "Dina tjänster i korthet.", "I tuoi servizi a colpo d’occhio.", "Twoje usługi w skrócie.", "Dine tjenester på et øjeblik.", "Dine tjenester på et øyeblikk."],
+  "Home internet connected": ["Internet à domicile connecté", "Thuisinternet verbonden", "Internet zu Hause verbunden", "Internet doméstico conectado", "May internet sa bahay", "Internet hemma anslutet", "Internet di casa connesso", "Internet domowy połączony", "Hjemmenet tilsluttet", "Hjemmenett tilkoblet"],
+  "Run test": ["Tester", "Test starten", "Test starten", "Probar", "Subukan", "Kör test", "Avvia test", "Uruchom test", "Kør test", "Kjør test"],
+  "All categories": ["Toutes les catégories", "Alle categorieën", "Alle Kategorien", "Todas las categorías", "Lahat ng kategorya", "Alla kategorier", "Tutte le categorie", "Wszystkie kategorie", "Alle kategorier", "Alle kategorier"],
+  "All": ["Tout", "Alles", "Alle", "Todo", "Lahat", "Alla", "Tutti", "Wszystkie", "Alle", "Alle"],
+  "Mobile layout": ["Disposition mobile", "Mobiele indeling", "Mobilansicht", "Diseño móvil", "Ayos sa mobile", "Mobillayout", "Layout mobile", "Układ mobilny", "Mobillayout", "Mobiloppsett"],
+  "One column": ["Une colonne", "Eén kolom", "Eine Spalte", "Una columna", "Isang hanay", "En kolumn", "Una colonna", "Jedna kolumna", "Én kolonne", "Én kolonne"],
+  "Two columns": ["Deux colonnes", "Twee kolommen", "Zwei Spalten", "Dos columnas", "Dalawang hanay", "Två kolumner", "Due colonne", "Dwie kolumny", "To kolonner", "To kolonner"],
+  "Speedtest style": ["Style du test de débit", "Snelheidsteststijl", "Stil des Speedtests", "Estilo de prueba de velocidad", "Estilo ng speed test", "Hastighetstestets stil", "Stile del test di velocità", "Styl testu prędkości", "Hastighedstestens stil", "Stil for hastighetstest"],
+  "Server info": ["Infos serveur", "Serverinfo", "Serverinfo", "Datos del servidor", "Impormasyon ng server", "Serverinfo", "Info server", "Informacje o serwerze", "Serverinfo", "Serverinfo"],
+  "Show server info": ["Afficher les infos serveur", "Serverinfo tonen", "Serverinfo anzeigen", "Mostrar datos del servidor", "Ipakita ang impormasyon ng server", "Visa serverinfo", "Mostra info server", "Pokaż informacje o serwerze", "Vis serverinfo", "Vis serverinfo"],
+  "Hide server info": ["Masquer les infos serveur", "Serverinfo verbergen", "Serverinfo ausblenden", "Ocultar datos del servidor", "Itago ang impormasyon ng server", "Dölj serverinfo", "Nascondi info server", "Ukryj informacje o serwerze", "Skjul serverinfo", "Skjul serverinfo"],
+  "Memory": ["Mémoire", "Geheugen", "Speicher", "Memoria", "Memorya", "Minne", "Memoria", "Pamięć", "Hukommelse", "Minne"],
+  "Disk used": ["Disque utilisé", "Schijfgebruik", "Belegter Speicher", "Disco usado", "Nagamit na disk", "Använt diskutrymme", "Disco usato", "Zajęte miejsce", "Brugt diskplads", "Brukt diskplass"],
+  "Disk free": ["Disque libre", "Vrije schijfruimte", "Freier Speicher", "Disco libre", "Libreng espasyo", "Ledigt diskutrymme", "Disco libero", "Wolne miejsce", "Ledig diskplads", "Ledig diskplass"],
+  "CPU temperature": ["Température CPU", "CPU-temperatuur", "CPU-Temperatur", "Temperatura de CPU", "Temperatura ng CPU", "CPU-temperatur", "Temperatura CPU", "Temperatura CPU", "CPU-temperatur", "CPU-temperatur"],
+  "Host uptime": ["Disponibilité de l’hôte", "Host-uptime", "Host-Laufzeit", "Tiempo de actividad", "Tagal ng paggana", "Drifttid", "Tempo di attività", "Czas pracy", "Oppetid", "Oppetid"],
+  "Operational": ["Opérationnel", "Operationeel", "Betriebsbereit", "Operativo", "Gumagana", "I drift", "Operativo", "Działa", "I drift", "I drift"],
+  "Reachable": ["Accessible", "Bereikbaar", "Erreichbar", "Accesible", "Naaabot", "Nåbar", "Raggiungibile", "Osiągalna", "Tilgængelig", "Tilgjengelig"],
+  "Unreachable": ["Inaccessible", "Onbereikbaar", "Nicht erreichbar", "Inaccesible", "Hindi maabot", "Kan inte nås", "Irraggiungibile", "Nieosiągalna", "Utilgængelig", "Utilgjengelig"],
+  "Provider outage": ["Panne du fournisseur", "Providerstoring", "Anbieterausfall", "Fallo del proveedor", "Abala sa provider", "Leverantörsavbrott", "Guasto del fornitore", "Awaria dostawcy", "Leverandørnedbrud", "Leverandøravbrudd"],
+  "Slow response": ["Réponse lente", "Trage reactie", "Langsame Antwort", "Respuesta lenta", "Mabagal na tugon", "Långsamt svar", "Risposta lenta", "Powolna odpowiedź", "Langsomt svar", "Treg respons"],
+  "Feed only": ["Flux seul", "Alleen statusfeed", "Nur Statusfeed", "Solo fuente de estado", "Feed lang", "Endast statusflöde", "Solo feed", "Tylko kanał statusu", "Kun statusfeed", "Kun statusfeed"],
+  "Checks only": ["Vérifications seules", "Alleen controles", "Nur Prüfungen", "Solo comprobaciones", "Mga pagsusuri lang", "Endast kontroller", "Solo controlli", "Tylko kontrole", "Kun kontroller", "Kun kontroller"],
+  "Feed + checks": ["Flux + vérifications", "Feed + controles", "Feed + Prüfungen", "Fuente + comprobaciones", "Feed + pagsusuri", "Flöde + kontroller", "Feed + controlli", "Kanał + kontrole", "Feed + kontroller", "Feed + kontroller"],
+  "Provider feed only": ["Flux du fournisseur uniquement", "Alleen providerfeed", "Nur Anbieterfeed", "Solo fuente del proveedor", "Feed lang ng provider", "Endast leverantörens flöde", "Solo feed del fornitore", "Tylko kanał dostawcy", "Kun leverandørfeed", "Kun leverandørfeed"],
+  "Feed refreshed": ["Flux actualisé", "Feed bijgewerkt", "Feed aktualisiert", "Fuente actualizada", "Na-update ang feed", "Flödet uppdaterat", "Feed aggiornato", "Kanał odświeżony", "Feed opdateret", "Feed oppdatert"],
+  "Checked": ["Vérifié", "Gecontroleerd", "Geprüft", "Comprobado", "Sinuri", "Kontrollerad", "Verificato", "Sprawdzono", "Kontrolleret", "Kontrollert"],
+  "Affected components": ["Composants touchés", "Getroffen onderdelen", "Betroffene Komponenten", "Componentes afectados", "Mga apektadong bahagi", "Berörda komponenter", "Componenti interessati", "Dotknięte składniki", "Berørte komponenter", "Berørte komponenter"],
+  "Official status": ["Statut officiel", "Officiële status", "Offizieller Status", "Estado oficial", "Opisyal na katayuan", "Officiell status", "Stato ufficiale", "Oficjalny status", "Officiel status", "Offisiell status"],
+  "Notifications off": ["Notifications désactivées", "Meldingen uit", "Benachrichtigungen aus", "Notificaciones desactivadas", "Naka-off ang mga abiso", "Aviseringar av", "Notifiche disattivate", "Powiadomienia wyłączone", "Notifikationer fra", "Varsler av"],
+  "Notifications on": ["Notifications activées", "Meldingen aan", "Benachrichtigungen an", "Notificaciones activadas", "Naka-on ang mga abiso", "Aviseringar på", "Notifiche attivate", "Powiadomienia włączone", "Notifikationer til", "Varsler på"],
+  "Pause Tracking": ["Suspendre le suivi", "Controles pauzeren", "Überwachung pausieren", "Pausar seguimiento", "I-pause ang pagsubaybay", "Pausa övervakning", "Sospendi monitoraggio", "Wstrzymaj monitorowanie", "Sæt overvågning på pause", "Sett overvåking på pause"],
+  "Resume Tracking": ["Reprendre le suivi", "Controles hervatten", "Überwachung fortsetzen", "Reanudar seguimiento", "Ipagpatuloy ang pagsubaybay", "Återuppta övervakning", "Riprendi monitoraggio", "Wznów monitorowanie", "Genoptag overvågning", "Gjenoppta overvåking"],
+  "Remove service": ["Supprimer le service", "Dienst verwijderen", "Dienst entfernen", "Eliminar servicio", "Alisin ang serbisyo", "Ta bort tjänst", "Rimuovi servizio", "Usuń usługę", "Fjern tjeneste", "Fjern tjeneste"],
+  "Confirm removal": ["Confirmer la suppression", "Verwijderen bevestigen", "Entfernen bestätigen", "Confirmar eliminación", "Kumpirmahin ang pag-alis", "Bekräfta borttagning", "Conferma rimozione", "Potwierdź usunięcie", "Bekræft fjernelse", "Bekreft fjerning"],
+  "Cancel": ["Annuler", "Annuleren", "Abbrechen", "Cancelar", "Kanselahin", "Avbryt", "Annulla", "Anuluj", "Annuller", "Avbryt"],
+  "Close": ["Fermer", "Sluiten", "Schließen", "Cerrar", "Isara", "Stäng", "Chiudi", "Zamknij", "Luk", "Lukk"],
+  "Track a service": ["Suivre un service", "Dienst volgen", "Dienst überwachen", "Supervisar un servicio", "Subaybayan ang serbisyo", "Övervaka en tjänst", "Monitora un servizio", "Monitoruj usługę", "Overvåg en tjeneste", "Overvåk en tjeneste"],
+  "Search catalog": ["Rechercher dans le catalogue", "Catalogus doorzoeken", "Katalog durchsuchen", "Buscar en el catálogo", "Maghanap sa katalogo", "Sök i katalogen", "Cerca nel catalogo", "Przeszukaj katalog", "Søg i kataloget", "Søk i katalogen"],
+  "Service name": ["Nom du service", "Dienstnaam", "Dienstname", "Nombre del servicio", "Pangalan ng serbisyo", "Tjänstens namn", "Nome del servizio", "Nazwa usługi", "Tjenestens navn", "Tjenestenavn"],
+  "Track URL": ["Suivre l’URL", "URL volgen", "URL überwachen", "Supervisar URL", "Subaybayan ang URL", "Övervaka URL", "Monitora URL", "Monitoruj URL", "Overvåg URL", "Overvåk URL"],
+  "Smart home": ["Maison connectée", "Slim huis", "Smart Home", "Hogar inteligente", "Smart home", "Smarta hem", "Casa intelligente", "Inteligentny dom", "Smart hjem", "Smarthus"],
+  "Online services": ["Services en ligne", "Onlinediensten", "Onlinedienste", "Servicios en línea", "Mga serbisyong online", "Onlinetjänster", "Servizi online", "Usługi online", "Onlinetjenester", "Nettjenester"],
+  "Weather": ["Météo", "Weer", "Wetter", "Tiempo", "Panahon", "Väder", "Meteo", "Pogoda", "Vejr", "Vær"],
+  "Custom": ["Personnalisé", "Aangepast", "Benutzerdefiniert", "Personalizado", "Pasadya", "Anpassad", "Personalizzato", "Własne", "Brugerdefineret", "Egendefinert"],
+  "Speedtest history": ["Historique des débits", "Snelheidstestgeschiedenis", "Speedtest-Verlauf", "Historial de velocidad", "Kasaysayan ng speed test", "Testhistorik", "Cronologia test", "Historia testów", "Testhistorik", "Testhistorikk"],
+  "Response time \u00b7 24 hours": ["Temps de réponse · 24 heures", "Reactietijd · 24 uur", "Antwortzeit · 24 Stunden", "Respuesta · 24 horas", "Oras ng tugon · 24 oras", "Svarstid · 24 timmar", "Tempo di risposta · 24 ore", "Czas odpowiedzi · 24 godziny", "Svartid · 24 timer", "Svartid · 24 timer"],
+  "Last successful feed update": ["Dernière actualisation réussie", "Laatste geslaagde feedupdate", "Letztes erfolgreiches Feedupdate", "Última actualización correcta", "Huling matagumpay na update", "Senaste lyckade uppdatering", "Ultimo aggiornamento riuscito", "Ostatnia udana aktualizacja", "Seneste vellykkede opdatering", "Siste vellykkede oppdatering"],
+  "Choose notification phone": ["Choisir un téléphone", "Telefoon kiezen", "Telefon auswählen", "Elegir teléfono", "Pumili ng telepono", "Välj telefon", "Scegli telefono", "Wybierz telefon", "Vælg telefon", "Velg telefon"],
+  "Phone": ["Téléphone", "Telefoon", "Telefon", "Teléfono", "Telepono", "Telefon", "Telefono", "Telefon", "Telefon", "Telefon"],
+  "Enable notifications": ["Activer les notifications", "Meldingen inschakelen", "Benachrichtigungen aktivieren", "Activar notificaciones", "Paganahin ang mga abiso", "Aktivera aviseringar", "Attiva notifiche", "Włącz powiadomienia", "Aktivér notifikationer", "Aktiver varsler"],
+  "Charts show response time. A reachable endpoint can still have partial outages.": ["Les graphiques indiquent le temps de réponse. Un service accessible peut subir une panne partielle.", "Grafieken tonen de reactietijd. Een bereikbare dienst kan gedeeltelijk uitvallen.", "Diagramme zeigen die Antwortzeit. Ein erreichbarer Dienst kann teilweise ausfallen.", "Los gráficos muestran el tiempo de respuesta. Un servicio accesible puede sufrir fallos parciales.", "Ipinapakita ng mga graph ang oras ng tugon. Maaaring may bahagyang abala kahit naaabot ang serbisyo.", "Diagrammen visar svarstid. En nåbar tjänst kan ha delvisa avbrott.", "I grafici mostrano il tempo di risposta. Un servizio raggiungibile può avere guasti parziali.", "Wykresy pokazują czas odpowiedzi. Dostępna usługa może mieć częściową awarię.", "Graferne viser svartid. En tilgængelig tjeneste kan have delvise nedbrud.", "Grafene viser svartid. En tilgjengelig tjeneste kan ha delvise avbrudd."],
+  "Applies on narrow screens and is saved in this browser.": ["S’applique aux petits écrans. Le choix est enregistré dans ce navigateur.", "Geldt voor smalle schermen en wordt in deze browser opgeslagen.", "Gilt für schmale Bildschirme und wird in diesem Browser gespeichert.", "Se aplica en pantallas estrechas y se guarda en este navegador.", "Para sa makikitid na screen. Naka-save sa browser na ito.", "Gäller smala skärmar och sparas i den här webbläsaren.", "Si applica agli schermi stretti e viene salvato in questo browser.", "Dotyczy wąskich ekranów i jest zapisywane w tej przeglądarce.", "Gælder smalle skærme og gemmes i denne browser.", "Gjelder smale skjermer og lagres i denne nettleseren."],
+  "Show host metrics from your existing Home Assistant sensors.": ["Afficher les mesures du serveur issues des capteurs Home Assistant.", "Toon hostgegevens van je Home Assistant-sensoren.", "Hostwerte der vorhandenen Home Assistant-Sensoren anzeigen.", "Muestra métricas del servidor de tus sensores de Home Assistant.", "Ipakita ang mga sukat ng host mula sa mga sensor ng Home Assistant.", "Visa värddata från dina Home Assistant-sensorer.", "Mostra le metriche host dai sensori di Home Assistant.", "Pokaż dane hosta z czujników Home Assistant.", "Vis værtsmålinger fra dine Home Assistant-sensorer.", "Vis vertsdata fra Home Assistant-sensorene dine."],
+  "24 hours": ["24 heures", "24 uur", "24 Stunden", "24 horas", "24 oras", "24 timmar", "24 ore", "24 godziny", "24 timer", "24 timer"],
+  "7 days": ["7 jours", "7 dagen", "7 Tage", "7 días", "7 araw", "7 dagar", "7 giorni", "7 dni", "7 dage", "7 dager"],
+  "30 days": ["30 jours", "30 dagen", "30 Tage", "30 días", "30 araw", "30 dagar", "30 giorni", "30 dni", "30 dage", "30 dager"],
+  "Download": ["Réception", "Download", "Download", "Descarga", "Download", "Nedladdning", "Download", "Pobieranie", "Download", "Nedlasting"],
+  "Upload": ["Envoi", "Upload", "Upload", "Subida", "Upload", "Uppladdning", "Caricamento", "Wysyłanie", "Upload", "Opplasting"],
+  "Newer": ["Plus récents", "Nieuwer", "Neuer", "Más recientes", "Mas bago", "Nyare", "Più recenti", "Nowsze", "Nyere", "Nyere"],
+  "Older": ["Plus anciens", "Ouder", "Älter", "Más antiguos", "Mas luma", "Äldre", "Meno recenti", "Starsze", "Ældre", "Eldre"],
+  "Enable Speedtest": ["Activer le test de débit", "Snelheidstest inschakelen", "Speedtest aktivieren", "Activar prueba de velocidad", "Paganahin ang speed test", "Aktivera hastighetstest", "Attiva test velocità", "Włącz test prędkości", "Aktivér hastighedstest", "Aktiver hastighetstest"],
+  "Enable host metrics": ["Activer les mesures du serveur", "Hostmetingen inschakelen", "Hostmetriken aktivieren", "Activar métricas del servidor", "Paganahin ang mga sukat ng host", "Aktivera värddata", "Attiva metriche host", "Włącz dane hosta", "Aktivér værtsmålinger", "Aktiver vertsdata"],
+  "Intermittent": ["Intermittent", "Wisselvallig", "Zeitweise gestört", "Intermitente", "Pabugso-bugso", "Instabil", "Intermittente", "Niestabilna", "Ustabil", "Ustabil"],
+  "Check blocked": ["Vérification bloquée", "Controle geblokkeerd", "Prüfung blockiert", "Comprobación bloqueada", "Naharang ang pagsusuri", "Kontroll blockerad", "Controllo bloccato", "Kontrola zablokowana", "Kontrol blokeret", "Kontroll blokkert"],
+  "Maintenance": ["Maintenance", "Onderhoud", "Wartung", "Mantenimiento", "Pagpapanatili", "Underhåll", "Manutenzione", "Konserwacja", "Vedligeholdelse", "Vedlikehold"],
+  "Checks paused": ["Vérifications suspendues", "Controles gepauzeerd", "Prüfungen pausiert", "Comprobaciones pausadas", "Naka-pause ang pagsusuri", "Kontroller pausade", "Controlli sospesi", "Kontrole wstrzymane", "Kontroller sat på pause", "Kontroller satt på pause"],
+  "Feed unavailable": ["Flux indisponible", "Feed niet beschikbaar", "Feed nicht verfügbar", "Fuente no disponible", "Hindi makuha ang feed", "Flödet är otillgängligt", "Feed non disponibile", "Kanał niedostępny", "Feed er utilgængeligt", "Feed utilgjengelig"],
+  "Connectivity uncertain": ["Connexion incertaine", "Verbinding onzeker", "Verbindung unklar", "Conexión incierta", "Hindi tiyak ang koneksyon", "Osäker anslutning", "Connessione incerta", "Niepewne połączenie", "Usikker forbindelse", "Usikker tilkobling"],
+  "Checking connectivity": ["Vérification de la connexion", "Verbinding controleren", "Verbindung wird geprüft", "Comprobando conexión", "Sinusuri ang koneksyon", "Kontrollerar anslutning", "Verifica connessione", "Sprawdzanie połączenia", "Kontrollerer forbindelse", "Sjekker tilkobling"],
+  "No recorded history": ["Aucun historique", "Geen geschiedenis", "Kein Verlauf", "Sin historial", "Walang naitalang kasaysayan", "Ingen historik", "Nessuna cronologia", "Brak historii", "Ingen historik", "Ingen historikk"],
+  "Testing\u2026": ["Test en cours…", "Bezig met testen…", "Test läuft…", "Probando…", "Sinusubukan…", "Testar…", "Test in corso…", "Testowanie…", "Tester…", "Tester…"]
+});
+
 class OutageWatchCard extends HTMLElement {
   static getStubConfig() { return {}; }
   constructor() {
     super();
     this.attachShadow({mode: "open"});
+    this.language = "en";
     this.theme = "steel";
     this.mobileLayout = "single";
     this.serverInfoPreference = null;
@@ -133,6 +289,8 @@ class OutageWatchCard extends HTMLElement {
     this.speedDays = 1;
     this.speedPage = 0;
     try {
+      const savedLanguage = localStorage.getItem(LANGUAGE_KEY);
+      if (Object.hasOwn(DASHBOARD_LANGUAGES, savedLanguage)) this.language = savedLanguage;
       const saved = localStorage.getItem(THEME_KEY);
       if (validTheme(saved)) this.theme = saved;
       if (localStorage.getItem(MOBILE_LAYOUT_KEY) === "double") this.mobileLayout = "double";
@@ -146,7 +304,7 @@ class OutageWatchCard extends HTMLElement {
       if (event.target.classList.contains("theme-dialog") && this.speedStyleChanged) {
         this.speedStyleChanged = false;
         this.render();
-        this.shadowRoot.querySelector('[data-action="themes"]')?.focus();
+        [...this.shadowRoot.querySelectorAll('[data-action="themes"]')].find(button => button.offsetWidth)?.focus();
       }
       if (event.target.classList.contains("speed-dialog")) {
         this.render();
@@ -154,6 +312,22 @@ class OutageWatchCard extends HTMLElement {
       }
     }, true);
     this.shadowRoot.addEventListener("change", (event) => {
+      if (event.target.id === "dashboard-language") {
+        const language = event.target.value;
+        if (!Object.hasOwn(DASHBOARD_LANGUAGES, language)) return;
+        this.language = language;
+        try { localStorage.setItem(LANGUAGE_KEY, language); } catch { /* Keep the session choice. */ }
+        this.shadowRoot.querySelector(".theme-dialog").close();
+        this.render();
+        this.shadowRoot.querySelector(".theme-dialog").showModal();
+        this.shadowRoot.querySelector("#dashboard-language").focus();
+        return;
+      }
+      if (event.target.id === "mobile-service-filter") {
+        this.serviceFilter = event.target.value;
+        this.render();
+        this.shadowRoot.querySelector("#mobile-service-filter")?.focus();
+      }
       if (event.target.id === "catalog-category") this.filterCatalog();
     });
     this.appearanceReady = () => this.syncAppearance();
@@ -197,7 +371,7 @@ class OutageWatchCard extends HTMLElement {
     this.shadowRoot.querySelector(".theme-dialog")?.close();
     this.syncAppearance();
     this.render();
-    this.shadowRoot.querySelector('[data-action="themes"]')?.focus();
+    [...this.shadowRoot.querySelectorAll('[data-action="themes"]')].find(button => button.offsetWidth)?.focus();
   }
 
   get speedSeries() {
@@ -240,6 +414,7 @@ class OutageWatchCard extends HTMLElement {
     }
     if (request.loading || request.error) {
       content.innerHTML = `<p role="status">${request.loading ? "Loading recorded readings…" : "Speedtest history could not be loaded."}</p>`;
+      this.localize(content);
       return;
     }
     const series = this.speedSeries;
@@ -255,22 +430,23 @@ class OutageWatchCard extends HTMLElement {
     const rows = [...byMinute.entries()].sort(([a],[b]) => b-a);
     const pageSize = 20;
     const pages = Math.ceil(rows.length / pageSize);
-    const format = (value) => value == null ? "—" : value.toLocaleString(undefined, {maximumFractionDigits:1});
+    const format = (value) => value == null ? "—" : value.toLocaleString(this.language, {maximumFractionDigits:1});
     content.innerHTML = rows.length ? `
       <div class="speed-history-chart">${speedGraph(request.data, series, {days:this.speedDays, style:"wave", end:request.end})}</div>
       ${series.some(({key,id}) => key === "ping" && request.data[id]?.length) ?
         `<div class="speed-history-chart ping-chart"><span class="muted">Ping · ms</span>
           ${speedGraph(request.data, series, {days:this.speedDays, style:"wave", end:request.end, ping:true})}</div>` : ""}
-      <p class="muted">First recorded reading: ${escape(new Date(rows.at(-1)[0]).toLocaleString())} · Download and upload share a scale.</p>
+      <p class="muted">First recorded reading: ${escape(new Date(rows.at(-1)[0]).toLocaleString(this.language))} · Download and upload share a scale.</p>
       <div class="speed-table-wrap"><table><thead><tr><th scope="col">Recorded time</th>${series.map(({label,unit}) => `<th scope="col">${label} (${unit})</th>`).join("")}</tr></thead>
         <tbody>${rows.slice(this.speedPage * pageSize, (this.speedPage + 1) * pageSize).map(([time,values]) =>
-          `<tr><th scope="row">${escape(new Date(time).toLocaleString())}</th>${series.map(({key}) => `<td>${escape(format(values[key]))}</td>`).join("")}</tr>`).join("")}</tbody>
+          `<tr><th scope="row">${escape(new Date(time).toLocaleString(this.language))}</th>${series.map(({key}) => `<td>${escape(format(values[key]))}</td>`).join("")}</tr>`).join("")}</tbody>
       </table></div>
       ${pages > 1 ? `<div class="row speed-paging">
         <button type="button" data-action="speed-page" data-id="-1" ${this.speedPage ? "" : "disabled"}>Newer</button>
-        <span>Page ${this.speedPage + 1} of ${pages}</span>
+        <span>${this.translate("Page {page} of {total}").replace("{page}",this.speedPage + 1).replace("{total}",pages)}</span>
         <button type="button" data-action="speed-page" data-id="1" ${this.speedPage + 1 < pages ? "" : "disabled"}>Older</button>
       </div>` : ""}` : '<p role="status">No recorded Speedtest readings for this period.</p>';
+    this.localize(content);
   }
 
   async refreshSpeedHistory() {
@@ -334,7 +510,7 @@ class OutageWatchCard extends HTMLElement {
       return '<button type="button" data-action="enable-readouts" data-id="speedtestdotnet">Enable Speedtest</button>';
     }
     const latest = series.map(({id}) => Date.parse(this._hass.states[id].last_updated)).filter(Number.isFinite);
-    const last = latest.length ? new Date(Math.max(...latest)).toLocaleString() : "";
+    const last = latest.length ? new Date(Math.max(...latest)).toLocaleString(this.language) : "";
     const canRun = this._hass.user?.is_admin && series.some(({key}) => key === "download");
     const action = canRun ? `<div class="speed-action">
       <button type="button" data-action="speedtest" ${this.speedRunning ? "disabled" : ""}>${this.speedRunning ? "Testing…" : "Run test"}</button>
@@ -346,13 +522,13 @@ class OutageWatchCard extends HTMLElement {
       <span class="speed-values">${series.map(({id,key,label,arrow,unit}) => {
         const sensor = this._hass.states[id];
         const reading = numeric(sensor.state);
-        const value = reading === null ? "—" : reading.toLocaleString(undefined, {maximumFractionDigits:1});
+        const value = reading === null ? "—" : reading.toLocaleString(this.language, {maximumFractionDigits:1});
         const scale = key === "download" ? 1000 : key === "upload" ? 500 : 100;
         const progress = Math.round(100 * Math.min(1, Math.max(0, (reading ?? 0) / scale)));
         if (style !== "classic") {
           const unitText = escape(sensor.attributes?.unit_of_measurement || unit);
           const display = reading === null ? "—" : Math.abs(reading) >= 10000
-            ? new Intl.NumberFormat(undefined, {notation:"compact", maximumFractionDigits:1}).format(reading) : value;
+            ? new Intl.NumberFormat(this.language, {notation:"compact", maximumFractionDigits:1}).format(reading) : value;
           const gauge = style === "gauges";
           const arc = "M13 57 A32 32 0 1 1 67 57";
           return `<span class="instrument ${key}" style="--level:${progress}%" title="${label}: ${escape(value)} ${unitText} · scale 0–${scale}">
@@ -376,7 +552,8 @@ class OutageWatchCard extends HTMLElement {
       this.data = await this._hass.callWS({type: "outage_watch/dashboard"});
       this.loadError = "";
     } catch (error) {
-      this.loadError = error.message || "Could not load Outage Map.";
+      this.loadError = error.message && Object.hasOwn(UI_TRANSLATIONS, error.message) ? error.message : "Could not load Outage Map.";
+      if (error.message && this.loadError !== error.message) console.warn("Outage Map", error.message);
     } finally {
       this.loading = false;
     }
@@ -391,7 +568,8 @@ class OutageWatchCard extends HTMLElement {
       this.confirmRemove = false;
       await this.refresh();
     } catch (error) {
-      this.error = error.message || "Could not save the change.";
+      this.error = error.message && Object.hasOwn(UI_TRANSLATIONS, error.message) ? error.message : "Could not save the change.";
+      if (error.message && this.error !== error.message) console.warn("Outage Map", error.message);
     }
     this.render();
   }
@@ -412,7 +590,7 @@ class OutageWatchCard extends HTMLElement {
       this.serverInfoPreference = !this.showServerInfo;
       try { localStorage.setItem(SERVER_INFO_KEY, String(this.showServerInfo)); } catch { /* In-memory choice. */ }
       button.setAttribute("aria-pressed", String(this.showServerInfo));
-      button.textContent = this.showServerInfo ? "Hide server info" : "Show server info";
+      button.textContent = this.translate(this.showServerInfo ? "Hide server info" : "Show server info");
       this.shadowRoot.querySelector(".server-info").hidden = !this.showServerInfo;
       return;
     }
@@ -452,14 +630,25 @@ class OutageWatchCard extends HTMLElement {
     }
     if (action === "speedtest") return this.runSpeedtest();
     if (action === "enable-readouts") {
-      if (id === "speedtestdotnet" && !window.confirm("Enable Speedtest? Home Assistant starts a test and normally runs one every hour.")) return;
+      if (id === "speedtestdotnet" && !window.confirm(this.translate("Enable Speedtest? Home Assistant starts a test and normally runs one every hour."))) return;
       button.disabled = true;
-      button.textContent = "Enabling…";
+      button.textContent = this.translate("Enabling…");
       return this.change("enable_readouts", {provider: id});
     }
     const service = this.activeService;
     this.error = "";
     if (action === "track") return this.change("add_service", {catalog_id: id});
+    if (action === "pause-tracking") return this.change("set_tracking_paused", {service_id:service.id, paused:!service.paused});
+    if (action === "alerts" && !service.alerts && !this.data.notify_configured) {
+      this.shadowRoot.querySelector(".phone-dialog").showModal();
+      return;
+    }
+    if (action === "cancel-phone") return this.shadowRoot.querySelector(".phone-dialog").close();
+    if (action === "save-phone") {
+      const phone = this.shadowRoot.querySelector(".phone-dialog select").value;
+      this.shadowRoot.querySelector(".phone-dialog").close();
+      return this.change("set_alerts", {service_id:service.id, enabled:true, phone});
+    }
     if (action === "alerts") return this.change("set_alerts", {service_id: service.id, enabled: !service.alerts});
     if (action === "remove") return this.change("remove_service", {service_id: service.id});
     if (action === "select" || action === "close") {
@@ -502,7 +691,7 @@ class OutageWatchCard extends HTMLElement {
       const value = numeric(sensor?.state);
       if (value === null) return [];
       const displayUnit = sensor.attributes?.unit_of_measurement || unit;
-      return [[label, value.toLocaleString(undefined, {maximumFractionDigits:1}) +
+      return [[label, value.toLocaleString(this.language, {maximumFractionDigits:1}) +
         (displayUnit === "%" ? "%" : displayUnit ? " " + displayUnit : "")]];
     });
     const boot = Date.parse(states[config.uptime || detected.uptime || "sensor.system_monitor_uptime"]?.state);
@@ -522,6 +711,37 @@ class OutageWatchCard extends HTMLElement {
     </section>`;
   }
 
+  translate(text) {
+    const index = LANGUAGE_CODES.indexOf(this.language);
+    const lookup = key => Object.hasOwn(UI_TRANSLATIONS,key) ? UI_TRANSLATIONS[key][index] : null;
+    if (index < 0) return text;
+    const value = text.trim();
+    if (!value) return text;
+    const translated = value.split(" · ").map(part => {
+      if (lookup(part)) return lookup(part);
+      for (const prefix of ["Checked", "Feed refreshed", "Last successful feed update", "Official status", "Speedtest updated", "First recorded reading:", "scale"]) {
+        if (part.startsWith(prefix + " ")) return lookup(prefix) + part.slice(prefix.length);
+      }
+      return part;
+    }).join(" · ");
+    return text.replace(value, lookup(value) || translated);
+  }
+
+  localize(root) {
+    if (this.language === "en") return;
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      if (!node.parentElement || node.parentElement.closest("style,.identity,.catalog,.chips,[data-provider-text],#dashboard-language")) continue;
+      node.nodeValue = this.translate(node.nodeValue);
+    }
+    for (const el of root.querySelectorAll("[placeholder],[aria-label],[title]:not(.identity)")) {
+      for (const attr of ["placeholder","aria-label","title"]) {
+        if (el.hasAttribute(attr)) el.setAttribute(attr,this.translate(el.getAttribute(attr)));
+      }
+    }
+  }
+
   render() {
     if (this.shadowRoot.querySelector("dialog[open]")) return;
     const {services = [], catalog = [], connected, can_manage, notify_configured} = this.data || {};
@@ -532,8 +752,8 @@ class OutageWatchCard extends HTMLElement {
     const activeFilter = filters.includes(this.serviceFilter) ? this.serviceFilter : "All";
     const visible = activeFilter === "All" ? ordered :
       ordered.filter((item) => serviceCategory(item) === activeFilter);
-    const selected = this.selected === null ? undefined :
-      visible.find((item) => item.id === this.selected) || visible[0];
+    const selected = visible.find((item) => item.id === this.selected);
+    if (!selected) this.selected = null;
     this.activeService = selected;
     const incident = ordered.find((item) => item.reason === "provider_outage");
     const counts = [["outage", "Outages"], ["possible_problems", "Possible problems"], ["operational", "Healthy"], ["unknown", "Unknown"]];
@@ -543,7 +763,10 @@ class OutageWatchCard extends HTMLElement {
     const summary = `<div class="summary"><span class="count"><b>${services.length}</b> Services</span>
         ${counts.map(([state, name]) => `<span class="count" data-state="${state}"><b>${services.filter((item) => item.status === state).length}</b> ${name}</span>`).join("")}
       </div>`;
+    const phones = Object.keys(this._hass?.services?.notify || {}).filter(key => key.startsWith("mobile_app_")).sort();
+    const headerActions = `<div class="header-actions"><button type="button" class="theme-open" data-action="themes" aria-haspopup="dialog">Settings</button>${can_manage ? '<button class="primary" data-action="add">+ Add service</button>' : ""}</div>`;
     const filterBar = trackedCategories.length > 0 ? `<div class="service-filters" role="group" aria-label="Filter tracked services">
+        <select id="mobile-service-filter" aria-label="Filter tracked services by category">${filters.map(name => `<option value="${escape(name)}" ${name === activeFilter ? "selected" : ""}>${name === "All" ? "All categories" : escape(name)}</option>`).join("")}</select>
         ${filters.map((name) => `<button type="button" data-action="filter-services" data-id="${escape(name)}"
           aria-pressed="${name === activeFilter}">${escape(name)}</button>`).join("")}
       </div>` : "";
@@ -1056,7 +1279,7 @@ class OutageWatchCard extends HTMLElement {
       .shell[data-theme="trek"] .trek-header .connection {
         background:#15251a;border-color:#83b18a;color:#c5e8bf;
       }
-      .shell[data-theme="trek"] .trek-header .speed-panel[data-speed-style="gauges"] {
+      .shell[data-theme="trek"] .trek-header .speed-panel[data-speed-style] {
         background:#080706;border:2px solid var(--frame);border-radius:24px 8px 8px 24px;
         box-shadow:none;padding:3px 7px;gap:5px;
       }
@@ -1117,7 +1340,7 @@ class OutageWatchCard extends HTMLElement {
         .trek-header .header-actions {position:absolute;left:47.6%;top:3%;width:15%;height:17%;display:flex;flex-wrap:nowrap;gap:2px}
         .shell[data-theme="trek"] .header-actions button {flex:auto;height:100%;padding:0 2px;border:0;border-radius:0;background:#e3a153;color:#100d10;font:bold clamp(9px,1cqw,15px)/1 "Arial Narrow",sans-serif}
         .shell[data-theme="trek"] .header-actions .primary {background:#acbce1}
-        .shell[data-theme="trek"] .trek-header .speed-panel[data-speed-style="gauges"] {position:absolute;left:64%;top:10%;width:33.6%;height:60%;box-sizing:border-box;background:black;border:0;padding:0;display:flex;align-items:center;justify-content:space-around;gap:0}
+        .shell[data-theme="trek"] .trek-header .speed-panel[data-speed-style] {position:absolute;left:64%;top:10%;width:33.6%;height:60%;box-sizing:border-box;background:black;border:0;padding:0;display:flex;align-items:center;justify-content:space-around;gap:0}
         .trek-header .speed-view {padding:0;flex:1}
         .trek-header .speed-values {justify-content:space-around}
         .trek-header .speed-panel[data-speed-style="gauges"] .instrument {width:6.6cqw}
@@ -1134,7 +1357,7 @@ class OutageWatchCard extends HTMLElement {
           border-radius:1.3cqw;background:linear-gradient(#253525,#101910);color:#dbebd7;
         }
         .trek-header .header-actions {left:47.65%;top:4%;width:15%;height:15%;gap:2px}
-        .shell[data-theme="trek"] .trek-header .speed-panel[data-speed-style="gauges"] {
+        .shell[data-theme="trek"] .trek-header .speed-panel[data-speed-style] {
           left:63.75%;top:9%;width:33.8%;height:63%;padding:0 .45cqw;
           border:0;background:transparent;box-shadow:none;
         }
@@ -1199,9 +1422,84 @@ class OutageWatchCard extends HTMLElement {
         .trek-header .speed-panel[data-speed-style="gauges"] .instrument {width:clamp(45px,7cqw,66px)}
         .shell[data-theme="trek"] .trek-header .server-info {grid-area:server}
       }
+      #mobile-service-filter {display:none}
+      @container (max-width:599px) {
+        .shell[data-theme] .service-filters button {display:none}
+        .shell[data-theme] #mobile-service-filter {display:block;font:inherit;font-size:13px;color:var(--ink);background:var(--theme-raised,#25282c);border:1px solid var(--line);border-radius:6px;padding:5px;min-height:32px}
+        .shell[data-theme] .summary {display:flex;align-items:center;gap:4px 10px;flex-wrap:wrap;margin:4px 0}
+        .shell[data-theme] .summary .count {display:inline-flex;align-items:baseline;gap:3px;padding:0;min-height:0;border:0;box-shadow:none;background:none;font-size:11px}
+        .shell[data-theme] .summary .count b {font-size:13px;text-shadow:none}
+        .shell[data-theme] .header-controls {width:100%;justify-content:space-between;gap:4px}
+        .shell[data-theme] .header-controls :is(.connection,.theme-open,.primary) {padding:4px 7px;font-size:12px}
+        .shell[data-theme] .header-actions button {min-height:32px}
+        .shell[data-theme] .header-controls .speed-panel {order:1;width:100%;box-sizing:border-box;justify-content:space-between}
+      }
+      .shell[data-theme] .header-controls .speed-panel[data-speed-style] {flex-wrap:nowrap;min-width:0}
+      .shell[data-theme] .speed-panel .speed-view {flex:1 1 0;min-width:0}
+      .shell[data-theme] .speed-panel .speed-view .speed-trend {display:block;flex:1 1 0;width:auto;min-width:0}
+      .shell[data-theme] .speed-view .speed-trend .speed-chart {width:100%;height:32px}
+      .shell[data-theme] .speed-view .speed-chart path {vector-effect:non-scaling-stroke}
+      .shell[data-theme] .speed-panel .speed-view .speed-values {width:auto;flex:0 0 auto;display:grid;gap:1px}
+      .shell[data-theme] .speed-panel .speed-action {width:auto;flex:0 0 auto}
+      .shell[data-theme] .speed-panel[data-speed-style="rails"] .speed-values,
+      .shell[data-theme] .speed-panel[data-speed-style="gauges"] .speed-values {flex:1 1 0;min-width:0}
+      .shell[data-theme] .speed-panel[data-speed-style="rails"] .speed-values {grid-template-columns:minmax(0,1fr);justify-items:stretch}
+      .shell[data-theme] .speed-panel[data-speed-style="rails"] .rail {flex:1 1 0;width:auto;min-width:0}
+      .shell[data-theme] .speed-panel[data-speed-style="gauges"] .speed-values {grid-template-columns:repeat(3,minmax(0,1fr));justify-items:center}
+      .shell[data-theme] .speed-panel[data-speed-style="gauges"] .instrument {width:100%;max-width:80px}
+      @container (min-width:600px) {
+        .shell:not([data-theme="trek"]) .header-controls .speed-panel {flex:1 1 250px}
+      }
+      .trek-filter-row {display:contents}
+      .trek-filter-row .header-actions {display:none}
+      @container (max-width:599px) {
+        .shell[data-theme="trek"] header.trek-header {grid-template-areas:"identity" "server" "speed"}
+        .trek-header .trek-identity {grid-area:identity;width:100%}
+        .shell[data-theme="trek"] .trek-header .header-controls {display:contents}
+        .trek-header .header-controls .header-actions {display:none}
+        .shell[data-theme="trek"] .trek-header .connection {
+          grid-area:identity;z-index:1;align-self:end;justify-self:stretch;
+          margin:0 0 0 45%;box-sizing:border-box;min-width:0;min-height:0;
+          justify-content:center;gap:4px;padding:1px 3px;font-size:clamp(10px,2.9cqw,14px);line-height:1.25;
+        }
+        .trek-header .server-info {grid-area:server}
+        .trek-header :is(.speed-panel,[data-id="speedtestdotnet"]) {grid-area:speed}
+        .trek-filter-row {display:flex;align-items:center;justify-content:space-between;gap:4px}
+        .trek-filter-row .header-actions {display:flex;flex-wrap:nowrap;margin-inline-start:auto}
+        .trek-filter-row .header-actions button {min-height:32px;padding:4px 8px;font-size:12px}
+        .trek-filter-row .service-filters {min-width:0}
+        .trek-filter-row select {max-width:100%}
+      }
+      .shell[data-theme] header.regular-header {
+        display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:6px;
+      }
+      .regular-header .header-controls {display:contents}
+      .shell[data-theme] .regular-header .connection {grid-column:2;grid-row:1;justify-self:end;margin:0}
+      .shell[data-theme] .regular-header :is(.speed-panel,[data-id="speedtestdotnet"]) {grid-column:1/-1;grid-row:2}
+      .regular-header [data-id="speedtestdotnet"] {justify-self:start}
+      .regular-filter-row {display:flex;align-items:center;justify-content:space-between;gap:6px;margin:6px 0 3px}
+      .regular-filter-row .header-actions {margin-inline-start:auto;flex-wrap:nowrap}
+      .regular-filter-row .service-filters {margin:0;min-width:0}
+      .regular-filter-row .service-filters button {display:none}
+      .shell[data-theme] .regular-filter-row #mobile-service-filter {display:block;max-width:100%;min-height:32px;padding:4px 7px;font:inherit;font-size:13px;color:var(--ink);background:var(--theme-raised,#25282c);border:1px solid var(--line);border-radius:6px}
+      @container (max-width:420px) {
+        .regular-header .connection {font-size:10px;padding:4px 6px}
+        .regular-header h1 {font-size:clamp(20px,6cqw,26px)}
+        .regular-filter-row .header-actions button {min-height:32px;padding:4px 7px;font-size:12px}
+      }
+      .shell[data-theme] .regular-filter-row :is(#mobile-service-filter, .header-actions button) {
+        box-sizing:border-box;height:32px;min-height:32px;padding:0 8px;border-width:1px;
+        border-radius:6px;font-size:13px;line-height:1.1;white-space:nowrap;
+      }
+      .regular-filter-row .header-actions {display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+      .regular-filter-row .header-actions:has(> :only-child) {grid-template-columns:auto}
     </style><main class="shell" data-theme="${this.theme}" data-mobile-layout="${this.mobileLayout}">
+      <dialog class="phone-dialog" aria-label="Choose notification phone"><h2>Choose notification phone</h2>
+        ${phones.length ? `<p>Use this phone for Outage Map alerts. Notifications will turn on for this service.</p><label>Phone <select>${phones.map(key => `<option value="${escape(key)}">${escape(key.slice(11).replaceAll("_"," "))}</option>`).join("")}</select></label><button data-action="save-phone">Enable notifications</button>` : "<p>No phones registered for notifications. Connect the Home Assistant Companion App and allow notifications, then reopen this picker.</p>"}
+        <button data-action="cancel-phone">Cancel</button></dialog>
       <dialog class="theme-dialog" aria-labelledby="ow-theme-title">
-        <div class="row"><h2 id="ow-theme-title">Dashboard theme</h2><button type="button" data-action="close-themes" aria-label="Close theme picker">×</button></div>
+        <div class="row"><h2 id="ow-theme-title">Dashboard settings</h2><button type="button" data-action="close-themes" aria-label="Close settings">×</button></div>
+        <label class="language-setting"><span>Language</span> <select id="dashboard-language">${Object.entries(DASHBOARD_LANGUAGES).map(([code,name]) => `<option value="${code}" ${code === this.language ? "selected" : ""}>${name}</option>`).join("")}</select></label>
         <div class="theme-grid">${Object.entries(THEMES).map(([id,[name,description,bg,edge,accent]]) => `
           <button type="button" class="theme-choice" data-action="choose-theme" data-id="${id}" aria-pressed="${this.theme === id}">
             <span class="theme-swatch" aria-hidden="true" style="--swatch-bg:${bg};--swatch-edge:${edge};--swatch-accent:${accent}"></span>
@@ -1213,7 +1511,7 @@ class OutageWatchCard extends HTMLElement {
             `<button type="button" data-action="mobile-layout" data-id="${id}" aria-pressed="${this.mobileLayout === id}">${name}</button>`).join("")}
           <p class="muted">Applies on narrow screens and is saved in this browser.</p>
         </fieldset>
-        <fieldset class="layout-options" ${trek ? "hidden" : ""}>
+        <fieldset class="layout-options">
           <legend>Speedtest style</legend>
           <div class="speed-style-controls">${Object.entries(SPEED_STYLES).map(([id,name]) =>
             `<button type="button" data-action="speed-style" data-id="${id}" aria-pressed="${this.speedStyle === id}">${name}</button>`).join("")}</div>
@@ -1232,41 +1530,43 @@ class OutageWatchCard extends HTMLElement {
         <p class="muted">Shows recorded sensor changes. Longer ranges can be incomplete if Home Assistant has purged older history.</p>
         <div class="speed-log"></div>
       </dialog>
-      <header class="${trek ? "trek-header" : ""}"><div class="${this.theme === "trek" ? "trek-identity" : ""}">${this.theme === "trek" ?
-        '<a class="trek-badge" href="/outage_watch/star-trek-badge.jpg" target="_blank" rel="noopener" aria-label="Open full-size Star Trek badge"><img src="/outage_watch/star-trek-badge.jpg" alt="United Network Federation · Outage Map &amp; Monitoring" width="2048" height="2048"></a>' : ""}<div><h1>Outage Map</h1><p>Your services, at a glance.</p></div></div><div class="header-controls">${connection}${this.speedHeader(trek ? "gauges" : undefined)}<div class="header-actions"><button type="button" class="theme-open" data-action="themes" aria-haspopup="dialog">Theme</button>${can_manage ? '<button class="primary" data-action="add">+ Add service</button>' : ""}</div>${trek ? this.serverInfo() : ""}</div></header>
+      <header class="${trek ? "trek-header" : "regular-header"}"><div class="${this.theme === "trek" ? "trek-identity" : ""}">${this.theme === "trek" ?
+        '<a class="trek-badge" href="/outage_watch/star-trek-badge.jpg" target="_blank" rel="noopener" aria-label="Open full-size Star Trek badge"><img src="/outage_watch/star-trek-badge.jpg" alt="United Network Federation · Outage Map &amp; Monitoring" width="2048" height="2048"></a>' : ""}<div><h1>Outage Map</h1><p>Your services, at a glance.</p></div></div><div class="header-controls">${connection}${this.speedHeader()}${trek ? headerActions : ""}${trek ? this.serverInfo() : ""}</div></header>
       ${this.loadError ? `<p class="notice" role="status">${escape(this.loadError)}</p>` : ""}
       ${this.error ? `<p class="notice danger" role="alert">${escape(this.error)}</p>` : ""}
-      ${trek ? "" : summary}
       ${connected === false ? '<div class="banner warning"><strong>Internet connectivity may be disrupted</strong><p>Home Assistant couldn’t reach either connectivity check. Service alerts are paused.</p></div>' :
-        incident ? `<div class="banner"><strong>${escape(incident.name)} is reporting an incident</strong><p>${escape(incident.incident || "See official status for details.")}</p></div>` : ""}
+        incident ? `<div class="banner"><strong>${escape(this.translate("{service} is reporting an incident").replace("{service}", () => incident.name))}</strong><p data-provider-text>${escape(incident.incident || this.translate("See official status for details."))}</p></div>` : ""}
       ${this.adding ? `<section class="add-box"><div class="row"><h2>Track a service</h2><button data-action="cancel">Close</button></div>
         <div class="catalog-controls"><input id="search" type="search" aria-label="Search catalog" placeholder="Search catalog">
         <select id="catalog-category" aria-label="Service category"><option value="">All categories</option>
-        ${categories.map((name) => `<option>${escape(name)}</option>`).join("")}</select></div>
+        ${categories.map((name) => `<option value="${escape(name)}">${escape(name)}</option>`).join("")}</select></div>
         <div class="catalog">${catalog.filter((item) => !services.some((service) => service.id === item.id)).map((item) => `<button data-search="${escape(item.name)}" data-category="${escape(item.category)}" data-action="track" data-id="${escape(item.id)}">${escape(item.name)}</button>`).join("")}</div>
         <p class="muted catalog-empty" hidden>No matching catalog services.</p>
         <form><input name="name" aria-label="Service name" placeholder="Service name" maxlength="80" required><input name="url" type="url" aria-label="Public HTTP URL" placeholder="https://example.com" required><button class="primary">Track URL</button></form></section>` : ""}
       ${this.theme === "trek" ? "" : this.serverInfo()}
-      ${trek ? `<div class="trek-toolbar">${filterBar}${summary}</div>` : filterBar}
+      ${trek ? `<div class="trek-toolbar"><div class="trek-filter-row">${filterBar}${headerActions}</div>${summary}</div>` : `<div class="regular-filter-row">${filterBar}${headerActions}</div>${summary}`}
       <div class="layout ${selected ? "with-detail" : ""}">
         <div class="tiles">${visible.map((item) => `<button class="tile" data-action="select" data-id="${escape(item.id)}" aria-pressed="${selected?.id === item.id}">
           <strong class="identity" title="${escape(item.name)}">${icons(item.icon || "link-variant")}<span class="service-name">${escape(item.name)}</span></strong>
-          <span class="tile-meta"><span class="muted">${escape(item.signal)}${item.feed_scope ? " · " + escape(item.feed_scope) : ""}${item.signal !== "Checks only" && !item.feed_fresh ? " · Feed unavailable" : ""}</span><span class="pill ${escape(item.status)}">${label(item)}</span></span>
+          <span class="tile-meta"><span class="muted">${escape(item.signal)}${item.feed_scope ? " · " + escape(item.feed_scope) : ""}${item.paused && item.signal === "Feed only" ? " · Checks paused" : ""}${!item.paused && item.signal !== "Checks only" && !item.feed_fresh ? " · Feed unavailable" : ""}</span><span class="pill ${escape(item.status)}">${label(item)}</span></span>
           <span class="spark">${graph(item)}<strong>${item.latency == null ? "—" : `${escape(item.latency)} ms`}</strong></span>
-          <span class="muted">${item.signal === "Feed only" ? "Feed refreshed" : "Checked"} ${timestamp(item.checked || item.feed_checked)}</span>
+          <span class="muted">${item.signal === "Feed only" ? "Feed refreshed" : "Checked"} ${timestamp(item.checked || item.feed_checked,this.language)}</span>
         </button>`).join("") || (this.data ? `<p class="muted">${can_manage ? "No services tracked yet." : "No services available to view."}</p>` : "")}</div>
         ${selected ? `<aside class="detail"><div class="row"><h2 class="identity">${icons(selected.icon || "link-variant")}${escape(selected.name)}</h2><button aria-label="Close details" data-action="close">×</button></div>
           <div><span class="pill ${escape(selected.status)}">${label(selected)}</span><p class="muted">${selected.reason === "unreachable" ? "Home Assistant could not reach this endpoint." : selected.signal === "Checks only" ? "This tile reflects checks from your network." : escape(selected.signal)}</p></div>
-          ${selected.incident ? `<p>${escape(selected.incident)}</p>` : ""}
+          ${selected.incident ? `<p data-provider-text>${escape(selected.incident)}</p>` : ""}
           <div class="plot"><div class="row"><h3>Response time · 24 hours</h3>${selected.baseline == null ? "" : `<span class="muted">Baseline ${escape(selected.baseline)} ms</span>`}</div>${graph(selected,true)}</div>
           ${selected.components?.length ? `<div><h3>Affected components</h3><div class="chips">${selected.components.map((name) => `<span>${escape(name)}</span>`).join("")}</div></div>` : ""}
-          <p class="muted">Last successful feed update ${timestamp(selected.feed_checked)}</p>
+          <p class="muted">Last successful feed update ${timestamp(selected.feed_checked,this.language)}</p>
           <div class="actions">${link(selected.official, selected.name === "Spotify" ? "Spotify ongoing issues" : "Official status")}${link(selected.crowd,"Downdetector")}</div>
-          ${can_manage ? `<footer class="actions"><button data-action="alerts" aria-pressed="${!!selected.alerts}" ${!notify_configured && !selected.alerts ? "disabled title=\"Configure a notification action in integration options\"" : ""}>Notifications ${selected.alerts ? "on" : "off"}</button>
+          ${can_manage ? `<footer class="actions"><button data-action="alerts" aria-pressed="${!!selected.alerts}">Notifications ${selected.alerts ? "on" : "off"}</button>
+          ${selected.can_pause ? `<button data-action="pause-tracking">${selected.paused ? "Resume Tracking" : "Pause Tracking"}</button>` : ""}
           ${this.confirmRemove ? '<button data-action="cancel-remove">Cancel</button><button class="danger" data-action="remove">Confirm removal</button>' : '<button data-action="confirm">Remove service</button>'}</footer>` : ""}
         </aside>` : ""}
       </div><p class="muted notice">Charts show response time. A reachable endpoint can still have partial outages.</p>
     </main>`;
+    this.shadowRoot.querySelector("main").lang = this.language;
+    this.localize(this.shadowRoot);
     this.syncAppearance();
   }
 }

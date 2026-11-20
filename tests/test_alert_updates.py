@@ -32,6 +32,25 @@ class MonitorTests(unittest.IsolatedAsyncioTestCase):
         self.instance = monitor.Monitor(Mock(), entry, [])
         self.instance.control = True
 
+    async def test_paused_endpoint_keeps_polling_provider(self):
+        m = self.instance
+        item = {"id": "example", "name": "Example", "url": "https://example.org",
+                "feed": "https://status.example.org", "paused": True, "samples": []}
+        feed = AsyncMock(return_value=({"data": {"level": "major"}}, 0))
+        with patch.object(monitor, "feed_update", feed), patch.object(monitor, "probe", AsyncMock()) as probe, \
+             patch.object(monitor, "next_slot", return_value=0), \
+             patch.object(monitor.asyncio, "sleep", AsyncMock(side_effect=StopClock)):
+            with self.assertRaises(StopClock):
+                await m.watch(item)
+            feed.assert_awaited_once()
+            probe.assert_not_awaited()
+            self.assertEqual(m.state(item)["status"], "outage")
+            item["paused"] = False
+            probe.return_value = ("ok", 20, 200, 0)
+            with self.assertRaises(StopClock):
+                await m.watch(item)
+            probe.assert_awaited_once()
+
     async def test_delivery_backoff_recovery_and_service_isolation(self):
         m = self.instance
         m.notify_action = "notify.phone"
