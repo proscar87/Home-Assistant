@@ -12,6 +12,19 @@ https://github.com/user-attachments/assets/91571d23-1311-4688-9896-740d362ae5fe
 
 Open [the sample dashboard](Outage%20Map/docs/card-preview.html) in a browser to try the layout and controls with fictional data.
 
+## Dashboard features
+
+| Feature | What you can do |
+| --- | --- |
+| Service monitoring | Track services from the built-in catalog or add a named public HTTP or HTTPS URL. Combine official incident feeds with reachability and response-time checks from Home Assistant where both are available. |
+| Status at a glance | See internet connectivity, totals for outages, possible problems, healthy and unknown services, and incident banners. Filter the grid by category. |
+| Service details | Open a tile for recent response times, incident details, affected components, feed timestamps, and links to official status, Downdetector, or provider support where available. Pause and resume endpoint checks or remove a service. |
+| Alerts and automations | Choose a Companion App phone for outage and recovery notifications. Enable alerts per service or use Home Assistant entities in your own automations. |
+| Speedtest | Enable Home Assistant’s Speedtest provider from the dashboard. View download, upload, and ping, run a test on demand as an administrator, and open 24-hour, 7-day, or 30-day history subject to Recorder retention. |
+| Server info | Display CPU, memory, used and free disk space, CPU temperature, host uptime, and the Home Assistant version. Enable the built-in System Monitor provider from the dashboard. |
+| Appearance | Choose from seven themes and five Speedtest styles. Pick a one- or two-column layout on mobile. |
+| Languages | Switch among 11 dashboard languages under **Settings → Language**, including translated dashboard help and errors. |
+
 ## Already configured? Open or create a dashboard
 
 If **Settings → Devices & services → Outage Map** shows an Outage Map entry, setup is complete. **Close the “Outage Map is already configured” dialog and skip the install steps.** One entity is normal before adding any monitors. It's the internet connectivity sensor.
@@ -124,6 +137,23 @@ Downdetector shows spikes in user reports. Outage Map combines official provider
 - The Google catalog entry combines a Google homepage check with the official Google Workspace incident feed. The feed covers Workspace products such as Gmail, Drive, and Calendar. Spotify and eWeLink monitor public web endpoints. Spotify also links to its official issue tracker.
 
 For each service, use the status and problem entities in automations. URL checks also create a response-time sensor. Notifications are off by default.
+
+## Home Assistant entities and automations
+
+Find the entities under **Settings → Devices & services → Outage Map**. Select entities by name in the automation editor so the automation uses the entity IDs assigned by your installation.
+
+| Entity | What it reports |
+| --- | --- |
+| **Service status** sensor | `operational`, `possible_problems`, `outage`, or `unknown`. |
+| **Service problem** binary sensor | Turns on for an outage or possible problem. Reports unknown when the service status is unknown. |
+| **Service response time** sensor | Recent successful response time in milliseconds for services with endpoint checks. |
+| **Outage Watch Internet** binary sensor | Whether Home Assistant can reach the internet connectivity checks. |
+
+For an outage-only automation, use a **State** trigger on a service’s status sensor and set **To** to `outage`. Add a mobile notification action and optionally require **Outage Watch Internet** to be on. Use the problem sensor when you want both outages and possible problems to trigger the automation.
+
+## Check interval
+
+Open **Settings → Devices & services → Outage Map → Configure** to set the base check interval from **60 to 3,600 seconds**. The default is **300 seconds**, or five minutes. Individual request times can vary because checks are staggered and retry delays can extend the interval.
 
 ## Appearance and mobile layout
 
