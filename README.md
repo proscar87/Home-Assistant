@@ -67,7 +67,7 @@ If you renamed the sensors, set `speedtest_download_entity`, `speedtest_upload_e
 
 ## Theme screenshots
 
-The six screenshots below use the same fictional service and Speedtest data. **Follow Appearance** is shown with an Amethyst palette and will look different with your active Home Assistant theme.
+All seven themes below use the same fictional service and Speedtest data. **Follow Appearance** is shown with an Amethyst palette and will look different with your active Home Assistant theme.
 
 | Brushed Steel | Amber Relay |
 | --- | --- |
@@ -81,13 +81,17 @@ The six screenshots below use the same fictional service and Speedtest data. **F
 | --- | --- |
 | [![Aqua Current](Outage%20Map/docs/screenshots/aqua-current.jpg)](Outage%20Map/docs/screenshots/aqua-current.jpg) | [![Follow Appearance shown with an Amethyst palette](Outage%20Map/docs/screenshots/follow-appearance.jpg)](Outage%20Map/docs/screenshots/follow-appearance.jpg) |
 
-### Star Trek on phones and tablets
+### Star Trek
 
-The Star Trek header shows live server readings in a compact strip. On wider screens, the gauges move beside the title. These screenshots use sample data and open at full size.
+[![Star Trek desktop dashboard](Outage%20Map/docs/screenshots/star-trek-desktop.jpg)](Outage%20Map/docs/screenshots/star-trek-desktop.jpg)
+
+#### Star Trek on phones and tablets
+
+The Star Trek header shows live server readings in a compact strip. On wider screens, Speedtest moves beside the title. These screenshots use sample data and open at full size.
 
 | Portrait | Landscape |
 | --- | --- |
-| [![Portrait dashboard with server readings beneath the title](Outage%20Map/docs/screenshots/star-trek-portrait.png)](Outage%20Map/docs/screenshots/star-trek-portrait.png) | [![Landscape dashboard with speed gauges beside the title](Outage%20Map/docs/screenshots/star-trek-landscape.png)](Outage%20Map/docs/screenshots/star-trek-landscape.png) |
+| [![Portrait dashboard with server readings beneath the title](Outage%20Map/docs/screenshots/star-trek-portrait.png)](Outage%20Map/docs/screenshots/star-trek-portrait.png) | [![Landscape dashboard with Speedtest graph beside the title](Outage%20Map/docs/screenshots/star-trek-landscape.png)](Outage%20Map/docs/screenshots/star-trek-landscape.png) |
 
 ## Mobile layout screenshots
 
@@ -99,7 +103,7 @@ Choose **Settings → Mobile layout** to switch. **One column** is the default. 
 
 ## Catalog coverage
 
-Use the category buttons above the dashboard tiles to focus on one group of tracked services. **All** restores the full list. The overall status counts and outage banners continue to cover every tracked service.
+Use the category selector above the dashboard tiles to focus on one group of tracked services. **All** restores the full list. The overall status counts and outage banners continue to cover every tracked service.
 
 Use **+ Add service** and filter by **AI**, **Video**, **Audio**, **Smart home**, **Weather**, or **Online services**. Catalog entries only start polling when you choose to track them. See the [endpoint verification results](Outage%20Map/docs/catalog-expansion.md) for the expanded catalog and its signal types.
 
