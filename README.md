@@ -4,9 +4,9 @@ Uptime monitoring and outage detection for Home Assistant. Track official provid
 
 ## Watch the 30-second demo
 
-[![Outage Map dashboard video preview](Outage%20Map/docs/outage-map-demo.jpg)](https://github.com/yanke7/Home-Assistant/releases/download/v0.2.12/outage-map-demo.mp4)
+https://github.com/user-attachments/assets/91571d23-1311-4688-9896-740d362ae5fe
 
-[Watch or download the MP4](https://github.com/yanke7/Home-Assistant/releases/download/v0.2.12/outage-map-demo.mp4) to see outage monitoring, Home Assistant automation entities, phone alerts, themes, and language settings.
+[Download the MP4](https://github.com/yanke7/Home-Assistant/releases/download/v0.2.12/outage-map-demo.mp4)
 
 ![Outage Map logo](https://raw.githubusercontent.com/yanke7/Home-Assistant/main/Outage%20Map/docs/outage-map-logo.jpg)
 
