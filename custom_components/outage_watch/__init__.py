@@ -53,7 +53,7 @@ async def async_setup(hass, config):
         StaticPathConfig("/outage_watch/outage-watch-card.js", str(WWW / "outage-watch-card.js"), False),
         StaticPathConfig("/outage_watch/star-trek-badge.jpg", str(WWW / "outage-map-star-trek-badge.jpg"), True),
     ])
-    frontend.add_extra_js_url(hass, "/outage_watch/outage-watch-card.js?v=0.2.10-readouts.1")
+    frontend.add_extra_js_url(hass, "/outage_watch/outage-watch-card.js?v=0.2.11")
     websocket_api.async_register_command(hass, dashboard)
 
     async def manage(call):
