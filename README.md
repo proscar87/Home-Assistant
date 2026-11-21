@@ -4,6 +4,8 @@ Uptime monitoring and outage detection for Home Assistant. Track official provid
 
 ## Watch the 30-second demo
 
+<video controls preload="metadata" width="800" poster="https://raw.githubusercontent.com/yanke7/Home-Assistant/main/Outage%20Map/docs/outage-map-demo.jpg" src="https://raw.githubusercontent.com/yanke7/Home-Assistant/main/Outage%20Map/docs/outage-map-demo.mp4"></video>
+
 https://github.com/user-attachments/assets/91571d23-1311-4688-9896-740d362ae5fe
 
 [Download the MP4](https://github.com/yanke7/Home-Assistant/releases/download/v0.2.12/outage-map-demo.mp4)
@@ -41,7 +43,7 @@ The integration doesn't create a sidebar dashboard automatically. If the card is
 type: custom:outage-watch-card
 ```
 
-If it says **Custom element doesn't exist: outage-watch-card** after refreshing, add `/outage_watch/outage-watch-card.js?v=0.2.12` as a **JavaScript module** in **Settings → Dashboards → Resources** (enable **Advanced mode** in your user profile if Resources isn't visible). Reload the dashboard. If the module URL returns 404, check that the integration is loaded and restart Home Assistant once after installation.
+If it says **Custom element doesn't exist: outage-watch-card** after refreshing, add `/outage_watch/outage-watch-card.js?v=0.2.13` as a **JavaScript module** in **Settings → Dashboards → Resources** (enable **Advanced mode** in your user profile if Resources isn't visible). Reload the dashboard. If the module URL returns 404, check that the integration is loaded and restart Home Assistant once after installation.
 
 ## Install for beta testing
 
