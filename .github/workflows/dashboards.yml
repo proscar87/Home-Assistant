@@ -3,16 +3,16 @@ name: Dashboard checks
 on:
   push:
     paths: &dashboard_paths
-      - 'Astra Dashboard/**'
-      - 'Fable Sun Moon/**'
-      - 'Echo Show Remote/**'
-      - 'Main Dashboard card/**'
-      - 'Network/**'
-      - 'Mac Dashboard/**'
-      - 'Office set up/**'
-      - 'Security/**'
-      - 'Themes/**'
-      - 'Weather/**'
+      - 'Other Home Assistant Projects/Astra Dashboard/**'
+      - 'Other Home Assistant Projects/Fable Sun Moon/**'
+      - 'Other Home Assistant Projects/Echo Show Remote/**'
+      - 'Other Home Assistant Projects/Main Dashboard card/**'
+      - 'Other Home Assistant Projects/Network/**'
+      - 'Other Home Assistant Projects/Mac Dashboard/**'
+      - 'Other Home Assistant Projects/Office set up/**'
+      - 'Other Home Assistant Projects/Security/**'
+      - 'Other Home Assistant Projects/Themes/**'
+      - 'Other Home Assistant Projects/Weather/**'
       - '.github/workflows/dashboards.yml'
   pull_request:
     paths: *dashboard_paths
@@ -35,8 +35,9 @@ jobs:
         shell: bash
         run: |
           shopt -s nullglob
-          for dir in "Astra Dashboard" "Fable Sun Moon" "Mac Dashboard" "Main Dashboard card" \
+          for project in "Astra Dashboard" "Fable Sun Moon" "Mac Dashboard" "Main Dashboard card" \
                      Network "Office set up" Security Themes Weather "Echo Show Remote"; do
+            dir="Other Home Assistant Projects/$project"
             for script in "$dir"/verify*.cjs; do
               echo "Running $script"
               node "$script"
@@ -44,7 +45,8 @@ jobs:
           done
       - name: Check packaged dashboards match their sources
         run: |
-          for dir in "Mac Dashboard" "Office set up"; do
+          for project in "Mac Dashboard" "Office set up"; do
+            dir="Other Home Assistant Projects/$project"
             python3 "$dir/build.py"
             git diff --exit-code -- "$dir/mac-studio.bundle.js"
           done

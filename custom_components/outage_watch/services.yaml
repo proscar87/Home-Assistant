@@ -28,3 +28,31 @@ set_alerts:
       required: true
       selector:
         boolean:
+
+    phone:
+      description: Registered mobile_app notification action name for first-time setup.
+      selector:
+        text:
+set_tracking_paused:
+  name: Pause or resume endpoint checks
+  fields:
+    service_id:
+      required: true
+      selector:
+        text:
+    paused:
+      required: true
+      selector:
+        boolean:
+
+enable_readouts:
+  name: Enable dashboard readouts
+  description: Set up the Home Assistant provider for Speedtest or server metrics.
+  fields:
+    provider:
+      required: true
+      selector:
+        select:
+          options:
+            - speedtestdotnet
+            - systemmonitor

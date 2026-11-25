@@ -1,5 +1,7 @@
 # Atmosphere weather dashboard
 
+> The standalone integration is now maintained in [Home-Assistant-weather](https://github.com/yanke7/Home-Assistant-weather).
+
 A compact Home Assistant dashboard with live weather, hourly and daily forecasts, precipitation radar, and garbage, recycling, and yard/food-waste collection dates.
 
 Desktop shows forecast and radar side by side. Mobile keeps current weather and pickups visible while Hourly, Daily, and Radar share one tabbed panel. Tested at desktop size and at 390×844 and 375×667. Very short screens or enlarged text may require scrolling.

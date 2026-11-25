@@ -107,7 +107,7 @@ class Monitor:
             connector=aiohttp.TCPConnector(resolver=self.resolver, limit=8),
             timeout=aiohttp.ClientTimeout(total=10),
             cookie_jar=aiohttp.DummyCookieJar(),
-            headers={"User-Agent": "OutageMap/0.2.8 (+https://github.com/yanke7/Home-Assistant)"},
+            headers={"User-Agent": "OutageMap/0.2.12 (+https://github.com/yanke7/Home-Assistant)"},
         )
         for service in self.services.values():
             self.schedule(service)
@@ -194,7 +194,7 @@ class Monitor:
 
     def state(self, service):
         now = time()
-        samples = service.get("samples", [])
+        samples = [] if service.get("paused") else service.get("samples", [])
         cached = service.get("provider") or {}
         checked = cached.get("checked", 0)
         feed = cached.get("data", {}) if checked > now - self.interval * 3 else {}
@@ -207,7 +207,9 @@ class Monitor:
             "latency": latest[2] if self.control and latest and latest[0] > now - self.interval * 5 else None,
             "checked": latest[0] if latest else None, "feed_checked": checked or None,
             "feed_fresh": bool(feed),
-            "signal": "Feed + checks" if service.get("feed") and service.get("url") else
+            "paused": bool(service.get("paused")),
+            "signal": ("Feed only" if service.get("feed") else "Checks paused") if service.get("paused") else
+                      "Feed + checks" if service.get("feed") and service.get("url") else
                       "Feed only" if service.get("feed") else "Checks only",
             **{key: feed.get(key) for key in ("incident", "components", "maintenance")},
         }
@@ -231,6 +233,7 @@ class Monitor:
                     item.pop(key, None)
             if admin:
                 item["alerts"] = service.get("alerts")
+                item["can_pause"] = bool(service.get("url"))
             services.append(item)
 
         result = {"can_manage": admin, "services": services}
@@ -270,12 +273,13 @@ class Monitor:
                     changed = True
                     if current and generation == self.generation and self.failures == 0:
                         service["provider"] = {**current, "checked": time()}
-                if (service.get("url") and now >= check_due
+                if (service.get("url") and not service.get("paused") and now >= check_due
                         and generation == self.generation and self.failures == 0):
+                    run_start = service.get("run_start")
                     outcome, latency, code, retry_at = await probe(self.session, service["url"])
                     service["probe_retry_at"] = retry_at
                     changed = True
-                    if generation == self.generation and self.failures == 0:
+                    if generation == self.generation and self.failures == 0 and not service.get("paused") and run_start == service.get("run_start"):
                         service["samples"].append([time(), outcome, latency, self.interval])
                         self.prune(service)
                         if code == 429:
